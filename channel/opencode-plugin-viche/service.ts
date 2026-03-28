@@ -247,12 +247,10 @@ export function createVicheService(
     try {
       ({ socket, channel } = await connectWebSocket(config, agentId, onMessage));
     } catch (err) {
-      const cause =
-        err instanceof Error
-          ? (err.cause as Record<string, unknown> | undefined)
-          : undefined;
-
-      if (cause != null && cause["reason"] === "agent_not_found") {
+      if (
+        err instanceof Error &&
+        (err.cause as Record<string, unknown> | undefined)?.["reason"] === "agent_not_found"
+      ) {
         // connectWebSocket already disconnected the stale socket; re-register
         // and try once more.
         agentId = await registerAgent(config, effectiveBackoffMs);

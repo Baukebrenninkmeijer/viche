@@ -56,17 +56,12 @@ defmodule VicheWeb.AgentChannel do
   def join("registry:" <> token, _params, socket) do
     agent_id = socket.assigns.agent_id
 
-    case Registry.lookup(Viche.AgentRegistry, agent_id) do
-      [{_pid, meta}] ->
-        if token in (meta.registries || []) do
-          Logger.info("Agent #{agent_id} joined registry channel: #{token}")
-          {:ok, assign(socket, :registry_token, token)}
-        else
-          {:error, %{reason: "not_in_registry"}}
-        end
-
-      [] ->
-        {:error, %{reason: "not_in_registry"}}
+    with [{_pid, meta}] <- Registry.lookup(Viche.AgentRegistry, agent_id),
+         true <- token in (meta.registries || []) do
+      Logger.info("Agent #{agent_id} joined registry channel: #{token}")
+      {:ok, assign(socket, :registry_token, token)}
+    else
+      _ -> {:error, %{reason: "not_in_registry"}}
     end
   end
 

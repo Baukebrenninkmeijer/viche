@@ -105,6 +105,41 @@ function pickCapabilities(
   return [...fallback];
 }
 
+/**
+ * Resolve a registries array from env var → file (registries array) → file (legacy registryToken).
+ */
+function pickRegistries(
+  envVal: string | undefined,
+  fileConfig: RawFileConfig
+): string[] | undefined {
+  if (typeof envVal === "string" && envVal.trim().length > 0) {
+    const parsed = envVal
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (parsed.length > 0) return parsed;
+  }
+
+  if (
+    Array.isArray(fileConfig.registries) &&
+    (fileConfig.registries as unknown[]).every((r) => typeof r === "string")
+  ) {
+    const filtered = (fileConfig.registries as string[]).filter(
+      (r) => r.trim().length > 0
+    );
+    if (filtered.length > 0) return filtered;
+  }
+
+  if (
+    typeof fileConfig.registryToken === "string" &&
+    fileConfig.registryToken.trim().length > 0
+  ) {
+    return [fileConfig.registryToken.trim()];
+  }
+
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -149,35 +184,7 @@ export function loadConfig(projectDir: string): VicheConfig {
     ) || undefined;
 
   // Registries: env var (comma-separated) → file registries array → legacy file registryToken → auto-generate + persist
-  let registries: string[] | undefined;
-
-  // 1. VICHE_REGISTRY_TOKEN env var: comma-separated list of tokens.
-  const envToken = process.env.VICHE_REGISTRY_TOKEN;
-  if (typeof envToken === "string" && envToken.trim().length > 0) {
-    const parsed = envToken
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    if (parsed.length > 0) registries = parsed;
-  }
-
-  // 2. Config file: prefer `registries` array; fall back to legacy `registryToken` string.
-  if (registries === undefined) {
-    if (
-      Array.isArray(fileConfig.registries) &&
-      (fileConfig.registries as unknown[]).every((r) => typeof r === "string")
-    ) {
-      const filtered = (fileConfig.registries as string[]).filter(
-        (r) => r.trim().length > 0
-      );
-      if (filtered.length > 0) registries = filtered;
-    } else if (
-      typeof fileConfig.registryToken === "string" &&
-      fileConfig.registryToken.trim().length > 0
-    ) {
-      registries = [fileConfig.registryToken.trim()];
-    }
-  }
+  let registries = pickRegistries(process.env.VICHE_REGISTRY_TOKEN, fileConfig);
 
   // 3. Auto-generate and persist so subsequent runs reuse the same token.
   if (registries === undefined) {
