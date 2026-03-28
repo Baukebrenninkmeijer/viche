@@ -21,6 +21,14 @@ RUN mix local.hex --force && mix local.rebar --force
 
 ENV MIX_ENV="prod"
 
+# SSL configuration (compile-time; evaluated during mix release)
+# Set DISABLE_FORCE_SSL=true when deploying behind a TLS-terminating reverse proxy
+ARG DISABLE_FORCE_SSL=false
+ENV DISABLE_FORCE_SSL=${DISABLE_FORCE_SSL}
+# Optionally exempt specific hostnames from force_ssl (comma-separated)
+ARG FORCE_SSL_EXCLUDE_HOSTS=""
+ENV FORCE_SSL_EXCLUDE_HOSTS=${FORCE_SSL_EXCLUDE_HOSTS}
+
 # Copy dependency manifests first for better layer caching
 COPY mix.exs mix.lock ./
 RUN mix deps.get --only $MIX_ENV

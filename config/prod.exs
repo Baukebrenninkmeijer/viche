@@ -7,15 +7,26 @@ import Config
 # before starting your production server.
 config :viche, VicheWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
-# Note `:force_ssl` is required to be set at compile-time.
-config :viche, VicheWeb.Endpoint,
-  force_ssl: [rewrite_on: [:x_forwarded_proto]],
-  exclude: [
-    # paths: ["/health"],
-    hosts: ["localhost", "127.0.0.1"]
-  ]
+# Force SSL: redirects HTTP -> HTTPS and sets HSTS headers.
+# Enabled by default for standalone deployments. Configurable via build-time env vars:
+#
+#   DISABLE_FORCE_SSL=true        — disable entirely (when behind a TLS-terminating proxy)
+#   FORCE_SSL_EXCLUDE_HOSTS=a,b   — keep force_ssl but exempt specific hostnames
+#                                   (e.g. Docker-internal names like "viche")
+#
+# Note: force_ssl is compile-time in Phoenix, so these are read during `mix release`.
+# In Docker, pass them as build args.
+unless System.get_env("DISABLE_FORCE_SSL") == "true" do
+  exclude_hosts =
+    System.get_env("FORCE_SSL_EXCLUDE_HOSTS", "")
+    |> String.split(",", trim: true)
+
+  config :viche, VicheWeb.Endpoint,
+    force_ssl: [rewrite_on: [:x_forwarded_proto]],
+    exclude: [
+      hosts: ["localhost", "127.0.0.1"] ++ exclude_hosts
+    ]
+end
 
 # Configure Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req
