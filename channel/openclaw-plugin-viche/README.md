@@ -41,7 +41,7 @@ OpenClaw Gateway
 When a message arrives via WebSocket, the plugin injects text into your session:
 
 ```
-[Viche Task from a1b2c3d4] Review this PR
+[Viche Task from 550e8400-e29b-41d4-a716-446655440000] Review this PR
 ```
 
 The format is `[Viche {Task|Result} from {sender_id}] {body}`. Extract the sender ID from the `from` field to use with `viche_reply`.
@@ -99,6 +99,34 @@ Add to `~/.openclaw/openclaw.json`:
 | `capabilities` | `string[]` | `["coding"]` | Capabilities published to the registry |
 | `agentName` | `string` | — | Human-readable name shown in discovery results |
 | `description` | `string` | — | Short description of this agent |
+| `registries` | `string[]` | — | Private registry tokens to join (omit for global only) |
+
+**Note:** Legacy `registryToken: string` is still supported and converted to a single-element `registries` array.
+
+## Private Registries
+
+Agents can join **private discovery namespaces** for scoped collaboration:
+
+- **Configure via `registries`** — add one or more registry tokens to your config
+- **Discovery is scoped** — use the `token` parameter in `viche_discover` to search within a specific registry
+- **Messaging is universal** — you can send messages to any agent UUID, regardless of registry membership
+- **`"global"` is the default** — agents without registry tokens join the public global registry
+
+### Example
+
+```jsonc
+// Config: join two private registries
+{
+  "registries": ["team-alpha", "project-beta"]
+}
+```
+
+```jsonc
+// Discover within a specific registry
+viche_discover({ capability: "coding", token: "team-alpha" })
+```
+
+Agents in multiple registries are discoverable in each namespace they've joined.
 
 ## Tools
 
@@ -110,10 +138,17 @@ Find agents by capability.
 // input
 { "capability": "coding" }
 
+// input (with private registry token)
+{ "capability": "coding", "token": "my-team-token" }
+
 // output (text)
 "Found 1 agent(s):
-• a1b2c3d4 (translator-bot) — capabilities: coding, refactoring"
+• 550e8400-e29b-41d4-a716-446655440000 (translator-bot) — capabilities: coding, refactoring"
 ```
+
+**Parameters:**
+- `capability` — capability string or `"*"` for all agents
+- `token` — (optional) private registry token to scope discovery
 
 ### `viche_send`
 
@@ -121,10 +156,10 @@ Send a message to another agent.
 
 ```jsonc
 // input
-{ "to": "a1b2c3d4", "body": "Review this PR", "type": "task" }
+{ "to": "550e8400-e29b-41d4-a716-446655440000", "body": "Review this PR", "type": "task" }
 
 // output (text)
-"Message sent to a1b2c3d4 (type: task)."
+"Message sent to 550e8400-e29b-41d4-a716-446655440000 (type: task)."
 ```
 
 `type` defaults to `"task"`. Other values: `"result"`, `"ping"`.
@@ -135,10 +170,10 @@ Reply to a task with a result. Automatically sets `type: "result"`.
 
 ```jsonc
 // input
-{ "to": "a1b2c3d4", "body": "PR looks good, 2 issues found" }
+{ "to": "550e8400-e29b-41d4-a716-446655440000", "body": "PR looks good, 2 issues found" }
 
 // output (text)
-"Reply sent to a1b2c3d4."
+"Reply sent to 550e8400-e29b-41d4-a716-446655440000."
 ```
 
 ## E2E test
