@@ -1,7 +1,7 @@
 ---
 description: Read-only consultation agent. High-IQ reasoning specialist for debugging hard problems and high-difficulty architecture design.
 mode: all
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.3-codex
 temperature: 0.1
 thinking:
   type: enabled
