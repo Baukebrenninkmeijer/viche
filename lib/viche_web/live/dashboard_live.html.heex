@@ -1,0 +1,361 @@
+<div style="background:var(--bg);color:var(--fg)" class="flex h-screen overflow-hidden">
+  <%!-- SIDEBAR --%>
+  <aside
+    style="background:var(--bg-1);border-right:1px solid var(--border)"
+    class="w-[216px] min-w-[216px] flex flex-col"
+  >
+    <%!-- Logo --%>
+    <div class="px-4 py-4 flex items-center gap-2">
+      <div
+        class="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold"
+        style="background:var(--color-ef-green);color:var(--color-ef-bg0)"
+      >
+        V
+      </div>
+      <span class="text-[15px] font-semibold tracking-tight" style="color:var(--fg)">viche</span>
+      <span class="text-[10px] font-mono ml-auto" style="color:var(--fg-dim)">v0.1</span>
+    </div>
+
+    <%!-- Nav --%>
+    <nav class="flex-1 flex flex-col px-2 gap-0.5 mt-1">
+      <div
+        class="nav-item active"
+        style="border-left:2px solid var(--color-ef-green);margin-left:-2px"
+      >
+        <.icon name="hero-squares-2x2-micro" class="size-4" />
+        <span>Dashboard</span>
+      </div>
+
+      <.link navigate="/network" class="nav-item">
+        <.icon name="hero-signal-micro" class="size-4" />
+        <span>Network</span>
+      </.link>
+
+      <div class="my-1.5 mx-2" style="border-top:1px solid var(--border)"></div>
+
+      <.link navigate="/agents" class="nav-item">
+        <.icon name="hero-users-micro" class="size-4" />
+        <span class="flex-1">All Agents</span>
+        <span
+          class="text-[10px] font-mono px-1.5 rounded"
+          style="background:var(--bg-2);color:var(--fg-dim)"
+        >
+          {@agent_count}
+        </span>
+      </.link>
+
+      <.link navigate="/agents?status=online" class="nav-item">
+        <.icon name="hero-bolt-micro" class="size-4" />
+        <span class="flex-1">Online</span>
+        <span
+          class="text-[10px] font-mono px-1.5 rounded"
+          style="background:color-mix(in srgb, var(--color-ef-green) 15%, transparent);color:var(--color-ef-green)"
+        >
+          {@online_count}
+        </span>
+      </.link>
+
+      <div class="my-1.5 mx-2" style="border-top:1px solid var(--border)"></div>
+
+      <.link navigate="/sessions" class="nav-item">
+        <.icon name="hero-clock-micro" class="size-4" />
+        <span class="flex-1">Sessions</span>
+        <span
+          class="text-[10px] font-mono px-1.5 rounded"
+          style="background:color-mix(in srgb, var(--color-ef-green) 15%, transparent);color:var(--color-ef-green)"
+        >
+          {@session_count}
+        </span>
+      </.link>
+
+      <.link navigate="/inbox" class="nav-item">
+        <.icon name="hero-envelope-micro" class="size-4" />
+        <span>Inbox Monitor</span>
+      </.link>
+
+      <div class="flex-1"></div>
+
+      <.link navigate="/settings" class="nav-item">
+        <.icon name="hero-cog-6-tooth-micro" class="size-4" />
+        <span>Settings</span>
+      </.link>
+
+      <a
+        href="https://github.com/ihorkatkov/viche"
+        target="_blank"
+        rel="noopener"
+        class="nav-item mb-2"
+      >
+        <.icon name="hero-code-bracket-micro" class="size-4" />
+        <span>GitHub</span>
+      </a>
+    </nav>
+  </aside>
+
+  <%!-- MAIN --%>
+  <main class="flex-1 flex flex-col overflow-hidden">
+    <%!-- TOPBAR --%>
+    <div
+      class="h-[50px] flex items-center px-5 gap-3 border-b flex-shrink-0"
+      style="background:var(--bg-1);border-color:var(--border)"
+    >
+      <span class="text-[15px] font-semibold" style="color:var(--fg)">Dashboard</span>
+      <span class="text-[13px]" style="color:var(--fg-dim)">/ overview</span>
+      <div class="flex-1"></div>
+      <span class="flex items-center gap-1.5 text-[11px]" style="color:var(--color-ef-green)">
+        <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-ef-green)] animate-pulse inline-block">
+        </span>
+        Live
+      </span>
+      <Layouts.theme_toggle />
+    </div>
+
+    <%!-- CONTENT --%>
+    <div class="flex-1 overflow-y-auto p-5 space-y-4" style="background:var(--bg)">
+      <%!-- STAT CARDS --%>
+      <%
+        total = max(@agent_count, 1)
+        idle_count = Enum.count(@agents, &(&1.status == :idle))
+        busy_count = Enum.count(@agents, &(&1.status == :busy))
+        offline_count = @agent_count - idle_count - busy_count
+        idle_pct = trunc(idle_count / total * 100)
+        busy_pct = trunc(busy_count / total * 100)
+        offline_pct = 100 - idle_pct - busy_pct
+      %>
+      <div class="grid grid-cols-4 gap-3">
+        <%!-- Total Agents --%>
+        <div
+          class="rounded-xl p-4 cursor-pointer"
+          style="background:var(--bg-1);border:1px solid var(--border)"
+          phx-click="navigate"
+          phx-value-to="/agents"
+        >
+          <div
+            class="text-[10.5px] font-semibold uppercase tracking-wide mb-2"
+            style="color:var(--fg-dim)"
+          >
+            Total Agents
+          </div>
+          <div class="text-[32px] font-bold tracking-tight" style="color:var(--fg)">
+            {@agent_count}
+          </div>
+          <div class="flex gap-0.5 mt-2.5 h-[3px] rounded overflow-hidden">
+            <div style={"width:#{idle_pct}%;background:var(--color-ef-green)"}></div>
+            <div style={"width:#{busy_pct}%;background:var(--color-ef-yellow)"}></div>
+            <div style={"width:#{offline_pct}%;background:var(--color-ef-bg3)"}></div>
+          </div>
+          <div class="flex gap-1.5 mt-2">
+            <span class="status-pill idle">{idle_count} idle</span>
+            <span class="status-pill busy">{busy_count} busy</span>
+            <span class="status-pill offline">{offline_count} off</span>
+          </div>
+        </div>
+
+        <%!-- Online Agents --%>
+        <div
+          class="rounded-xl p-4 cursor-pointer"
+          style="background:var(--bg-1);border:1px solid var(--border)"
+          phx-click="navigate"
+          phx-value-to="/agents?status=online"
+        >
+          <div
+            class="text-[10.5px] font-semibold uppercase tracking-wide mb-2"
+            style="color:var(--fg-dim)"
+          >
+            Online
+          </div>
+          <div class="text-[32px] font-bold tracking-tight" style="color:var(--color-ef-green)">
+            {@online_count}
+          </div>
+          <div class="text-[11px] mt-3" style="color:var(--fg-dim)">
+            of {@agent_count} registered
+          </div>
+        </div>
+
+        <%!-- Sessions --%>
+        <div
+          class="rounded-xl p-4 cursor-pointer"
+          style="background:var(--bg-1);border:1px solid var(--border)"
+          phx-click="navigate"
+          phx-value-to="/sessions"
+        >
+          <div
+            class="text-[10.5px] font-semibold uppercase tracking-wide mb-2"
+            style="color:var(--fg-dim)"
+          >
+            Sessions
+          </div>
+          <div class="text-[32px] font-bold tracking-tight" style="color:var(--fg)">
+            {@session_count}
+          </div>
+          <div class="text-[11px] mt-3" style="color:var(--fg-dim)">active now</div>
+        </div>
+
+        <%!-- Messages Today --%>
+        <div
+          class="rounded-xl p-4"
+          style="background:var(--bg-1);border:1px solid var(--border)"
+        >
+          <div
+            class="text-[10.5px] font-semibold uppercase tracking-wide mb-2"
+            style="color:var(--fg-dim)"
+          >
+            Messages Today
+          </div>
+          <div class="text-[32px] font-bold tracking-tight" style="color:var(--fg)">
+            {@messages_today}
+          </div>
+          <div class="text-[11px] mt-3" style="color:var(--fg-dim)">avg latency 84ms</div>
+        </div>
+      </div>
+
+      <%!-- LOWER GRID: Agents Table | Activity Feed --%>
+      <div class="grid grid-cols-[1fr_380px] gap-3">
+        <%!-- Agents Table --%>
+        <div class="rounded-xl overflow-hidden" style="background:var(--bg-1);border:1px solid var(--border)">
+          <div class="flex items-center px-4 py-3 gap-2" style="border-bottom:1px solid var(--border)">
+            <span class="text-[13px] font-semibold" style="color:var(--fg)">Connected Agents</span>
+            <span
+              class="text-[10px] font-mono px-1.5 rounded"
+              style="background:var(--bg-2);color:var(--fg-dim)"
+            >
+              {@agent_count}
+            </span>
+            <div class="flex-1"></div>
+            <button
+              class="text-[11px] px-2 py-1 rounded"
+              style="background:var(--bg-2);color:var(--fg-dim)"
+            >
+              Filter
+            </button>
+            <button
+              class="text-[11px] px-2 py-1 rounded"
+              style="background:var(--bg-2);color:var(--fg-dim)"
+            >
+              Sort
+            </button>
+            <button
+              class="text-[11px] px-2 py-1 rounded"
+              style="background:color-mix(in srgb, var(--color-ef-green) 15%, transparent);color:var(--color-ef-green)"
+            >
+              + Register
+            </button>
+          </div>
+
+          <%!-- Table header --%>
+          <div
+            class="grid grid-cols-[1fr_auto_90px_60px_80px] gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide"
+            style="background:var(--bg-2);color:var(--fg-dim)"
+          >
+            <span>Agent</span>
+            <span>Capabilities</span>
+            <span>Status</span>
+            <span>Queue</span>
+            <span>Last seen</span>
+          </div>
+
+          <%!-- Table rows --%>
+          <%= if @agents == [] do %>
+            <div class="px-4 py-8 text-center text-[12px]" style="color:var(--fg-dim)">
+              No agents registered yet. Register one to get started.
+            </div>
+          <% else %>
+            <%= for agent <- @agents do %>
+              <%
+                avatar_colors = ["var(--color-ef-green)", "var(--color-ef-blue)", "var(--color-ef-purple)", "var(--color-ef-yellow)", "var(--color-ef-aqua)"]
+                avatar_color = Enum.at(avatar_colors, rem(:erlang.phash2(agent.name), 5))
+                initial = agent.name |> String.first() |> String.upcase()
+              %>
+              <div
+                class="grid grid-cols-[1fr_auto_90px_60px_80px] gap-3 items-center px-4 py-2.5 transition-colors"
+                style="border-top:1px solid var(--border)"
+              >
+                <%!-- Agent --%>
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div
+                    class="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                    style={"background:color-mix(in srgb, #{avatar_color} 20%, transparent);color:#{avatar_color}"}
+                  >
+                    {initial}
+                  </div>
+                  <span class="text-[13px] font-medium truncate" style="color:var(--fg)">
+                    {agent.name}
+                  </span>
+                </div>
+                <%!-- Capabilities --%>
+                <div class="flex gap-1 flex-wrap">
+                  <%= for cap <- agent.capabilities do %>
+                    <span class="cap-tag">{cap}</span>
+                  <% end %>
+                </div>
+                <%!-- Status --%>
+                <span class={"status-pill #{agent.status}"}>{agent.status}</span>
+                <%!-- Queue --%>
+                <span class="text-[12px] font-mono" style="color:var(--fg-dim)">
+                  {agent.queue_depth}
+                </span>
+                <%!-- Last seen --%>
+                <span class="text-[11px]" style="color:var(--fg-dim)">{agent.last_seen}</span>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+
+        <%!-- Activity Feed --%>
+        <div class="rounded-xl overflow-hidden flex flex-col" style="background:var(--bg-1);border:1px solid var(--border)">
+          <div
+            class="flex items-center px-4 py-3 gap-2 flex-shrink-0"
+            style="border-bottom:1px solid var(--border)"
+          >
+            <span class="text-[13px] font-semibold" style="color:var(--fg)">Live Activity</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-ef-green)] animate-pulse inline-block">
+            </span>
+            <div class="flex-1"></div>
+            <button
+              phx-click="toggle_pause"
+              class="text-[11px] px-2 py-1 rounded"
+              style={"background:var(--bg-2);color:#{if @paused, do: "var(--color-ef-yellow)", else: "var(--fg-dim)"}"}
+            >
+              {if @paused, do: "Paused", else: "Pause"}
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto">
+            <%= for item <- @feed do %>
+              <div class="px-4 py-2.5 flex gap-2.5 items-start" style="border-top:1px solid var(--border)">
+                <span class={"feed-type #{item.type} mt-0.5"}>{item.type}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1 text-[11px]">
+                    <span class="font-medium" style="color:var(--fg)">{item.from}</span>
+                    <span style="color:var(--fg-dim)">&rarr;</span>
+                    <span style="color:var(--fg-dim)">{item.to}</span>
+                    <span class="ml-auto flex-shrink-0" style="color:var(--fg-dim)">{item.at}</span>
+                  </div>
+                  <div class="text-[12px] mt-0.5 truncate" style="color:var(--fg-dim)">
+                    {item.body}
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- STATUS BAR --%>
+    <div
+      class="h-6 flex items-center px-4 gap-3 text-[10px] font-mono border-t flex-shrink-0"
+      style="background:var(--bg-1);border-color:var(--border);color:var(--fg-dim)"
+    >
+      <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-ef-green)] animate-pulse inline-block">
+      </span>
+      ws://viche.fly.dev/socket
+      <span class="opacity-30">|</span>
+      registry: public
+      <span class="opacity-30">|</span>
+      {@agent_count} agents &middot; {@online_count} online
+      <span class="opacity-30">|</span>
+      {@messages_today} messages today
+    </div>
+  </main>
+</div>
