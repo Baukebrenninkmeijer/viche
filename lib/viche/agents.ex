@@ -13,6 +13,8 @@ defmodule Viche.Agents do
       Viche.Agents.deregister("abc12345")
   """
 
+  require Logger
+
   alias Viche.Agent
   alias Viche.AgentServer
   alias Viche.Message
@@ -74,6 +76,13 @@ defmodule Viche.Agents do
 
     via = {:via, Registry, {Viche.AgentRegistry, agent_id}}
     agent = AgentServer.get_state(via)
+
+    Logger.info(
+      "Agent #{agent.id} registered (name: #{inspect(agent.name)}, " <>
+        "capabilities: #{inspect(agent.capabilities)}, " <>
+        "polling_timeout: #{agent.polling_timeout_ms}ms)"
+    )
+
     {:ok, agent}
   end
 
@@ -93,6 +102,7 @@ defmodule Viche.Agents do
     case Registry.lookup(Viche.AgentRegistry, agent_id) do
       [{pid, _meta}] ->
         DynamicSupervisor.terminate_child(Viche.AgentSupervisor, pid)
+        Logger.info("Agent #{agent_id} deregistered")
         :ok
 
       [] ->

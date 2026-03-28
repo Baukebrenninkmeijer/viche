@@ -68,6 +68,12 @@ Application
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues. This runs: compilation with warnings-as-errors, dependency check, formatting, Credo (strict), tests, and Dialyzer
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
+### Claude Code with Viche MCP Channel
+
+- To launch Claude Code connected to the Viche network, use: `claude --dangerously-load-development-channels server:viche --dangerously-skip-permissions`
+- This loads the MCP channel defined in `.mcp.json` which auto-registers the agent and connects via WebSocket
+- The Phoenix server must be running (`iex -S mix phx.server`) before launching Claude Code
+
 ### Phoenix v1.8 guidelines
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content

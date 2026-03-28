@@ -15,39 +15,35 @@ defmodule VicheWeb.RegistryController do
   def register(conn, params) do
     polling_timeout_ms = Map.get(params, "polling_timeout_ms")
 
-    case validate_polling_timeout(polling_timeout_ms) do
+    with :ok <- validate_polling_timeout(polling_timeout_ms),
+         attrs = %{
+           capabilities: Map.get(params, "capabilities"),
+           name: Map.get(params, "name"),
+           description: Map.get(params, "description"),
+           polling_timeout_ms: polling_timeout_ms
+         },
+         {:ok, agent} <- Agents.register_agent(attrs) do
+      conn
+      |> put_status(:created)
+      |> json(%{
+        id: agent.id,
+        name: agent.name,
+        capabilities: agent.capabilities,
+        description: agent.description,
+        inbox_url: "/inbox/#{agent.id}",
+        registered_at: DateTime.to_iso8601(agent.registered_at),
+        polling_timeout_ms: agent.polling_timeout_ms
+      })
+    else
       {:error, :invalid_polling_timeout} ->
         conn
         |> put_status(:unprocessable_entity)
         |> json(%{error: "invalid_polling_timeout"})
 
-      :ok ->
-        attrs = %{
-          capabilities: Map.get(params, "capabilities"),
-          name: Map.get(params, "name"),
-          description: Map.get(params, "description"),
-          polling_timeout_ms: polling_timeout_ms
-        }
-
-        case Agents.register_agent(attrs) do
-          {:ok, agent} ->
-            conn
-            |> put_status(:created)
-            |> json(%{
-              id: agent.id,
-              name: agent.name,
-              capabilities: agent.capabilities,
-              description: agent.description,
-              inbox_url: "/inbox/#{agent.id}",
-              registered_at: DateTime.to_iso8601(agent.registered_at),
-              polling_timeout_ms: agent.polling_timeout_ms
-            })
-
-          {:error, :capabilities_required} ->
-            conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{error: "capabilities_required"})
-        end
+      {:error, :capabilities_required} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "capabilities_required"})
     end
   end
 

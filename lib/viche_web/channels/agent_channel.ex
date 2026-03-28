@@ -32,10 +32,13 @@ defmodule VicheWeb.AgentChannel do
 
   use Phoenix.Channel
 
+  require Logger
+
   def join("agent:" <> agent_id, _params, socket) do
     case Registry.lookup(Viche.AgentRegistry, agent_id) do
       [{pid, _meta}] ->
         send(pid, :websocket_connected)
+        Logger.info("Agent #{agent_id} joined channel")
         {:ok, assign(socket, :agent_id, agent_id)}
 
       [] ->
@@ -45,6 +48,7 @@ defmodule VicheWeb.AgentChannel do
 
   def terminate(_reason, socket) do
     agent_id = socket.assigns.agent_id
+    Logger.info("Agent #{agent_id} channel terminated")
 
     case Registry.lookup(Viche.AgentRegistry, agent_id) do
       [{pid, _meta}] -> send(pid, :websocket_disconnected)

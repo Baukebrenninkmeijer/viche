@@ -18,6 +18,8 @@ defmodule Viche.AgentServer do
 
   use GenServer
 
+  require Logger
+
   alias Viche.Agent
   alias Viche.Message
 
@@ -102,6 +104,11 @@ defmodule Viche.AgentServer do
 
     Process.send_after(self(), :check_polling_timeout, polling_timeout_ms)
 
+    Logger.info(
+      "AgentServer started for #{agent_id} " <>
+        "(connection_type: #{agent.connection_type}, polling_timeout: #{polling_timeout_ms}ms)"
+    )
+
     {:ok, {agent, %{grace_timer_ref: nil}}}
   end
 
@@ -120,6 +127,7 @@ defmodule Viche.AgentServer do
   def handle_call(:drain_inbox, _from, {%Agent{inbox: inbox} = agent, meta}) do
     updated = %Agent{agent | inbox: [], last_activity: DateTime.utc_now()}
     reschedule_polling_timeout(updated)
+    Logger.debug("Agent #{agent.id} inbox drained, last_activity updated")
     {:reply, inbox, {updated, meta}}
   end
 
@@ -132,12 +140,21 @@ defmodule Viche.AgentServer do
   def handle_info(:websocket_connected, {%Agent{} = agent, %{grace_timer_ref: ref} = meta}) do
     cancel_grace_timer(ref)
     updated_agent = %Agent{agent | connection_type: :websocket}
+
+    if ref do
+      Logger.info("Agent #{agent.id} WebSocket connected, grace timer cancelled")
+    else
+      Logger.info("Agent #{agent.id} WebSocket connected")
+    end
+
     {:noreply, {updated_agent, %{meta | grace_timer_ref: nil}}}
   end
 
   @impl GenServer
   def handle_info(:websocket_disconnected, {%Agent{} = agent, meta}) do
-    ref = Process.send_after(self(), :deregister_grace_expired, grace_period_ms())
+    grace_ms = grace_period_ms()
+    ref = Process.send_after(self(), :deregister_grace_expired, grace_ms)
+    Logger.debug("Agent #{agent.id} WebSocket disconnected, grace period started (#{grace_ms}ms)")
     {:noreply, {agent, %{meta | grace_timer_ref: ref}}}
   end
 
@@ -146,6 +163,7 @@ defmodule Viche.AgentServer do
     # Returning {:stop, :normal} terminates the process cleanly.
     # The :via Registry entry is automatically removed on process exit.
     # The DynamicSupervisor records the child as stopped (restart: :temporary means no restart).
+    Logger.info("Agent #{agent.id} grace period expired, deregistering")
     {:stop, :normal, {agent, meta}}
   end
 
@@ -161,8 +179,10 @@ defmodule Viche.AgentServer do
     remaining = agent.polling_timeout_ms - elapsed
 
     if remaining <= 0 do
+      Logger.info("Agent #{agent.id} polling timeout fired, deregistering")
       {:stop, :normal, {agent, meta}}
     else
+      Logger.debug("Agent #{agent.id} polling timeout check, #{remaining}ms remaining")
       Process.send_after(self(), :check_polling_timeout, remaining)
       {:noreply, {agent, meta}}
     end

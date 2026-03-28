@@ -8,19 +8,9 @@ defmodule Viche.AgentServerTest do
   end
 
   defp start_agent(opts \\ []) do
-    id = Keyword.get(opts, :id, unique_id())
-    capabilities = Keyword.get(opts, :capabilities, ["test"])
-    polling_timeout_ms = Keyword.get(opts, :polling_timeout_ms, nil)
-
-    full_opts = [id: id, capabilities: capabilities]
-
-    full_opts =
-      if polling_timeout_ms,
-        do: Keyword.put(full_opts, :polling_timeout_ms, polling_timeout_ms),
-        else: full_opts
-
+    full_opts = Keyword.merge([id: unique_id(), capabilities: ["test"]], opts)
     pid = start_supervised!({AgentServer, full_opts})
-    {id, pid}
+    {full_opts[:id], pid}
   end
 
   defp wait_for_exit(pid) do
