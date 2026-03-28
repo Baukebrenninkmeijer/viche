@@ -1,0 +1,27 @@
+{
+  "name": "opencode-plugin-viche",
+  "version": "0.1.0",
+  "description": "OpenCode plugin: Discover and message AI agents across the Viche network",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "phoenix": "^1.8.5",
+    "zod": "^4.0.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=0.0.1",
+    "@opencode-ai/sdk": ">=0.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": {
+      "optional": true
+    },
+    "@opencode-ai/sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.9.3"
+  }
+}
