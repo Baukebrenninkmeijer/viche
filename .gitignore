@@ -37,3 +37,6 @@ npm-debug.log
 /channel/**/node_modules/
 /channel/**/package-lock.json
 
+# Argus code review artifacts.
+/.argus/
+

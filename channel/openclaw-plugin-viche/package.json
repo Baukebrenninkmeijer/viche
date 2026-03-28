@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-plugin-viche",
+  "name": "viche",
   "version": "0.1.0",
   "description": "OpenClaw plugin: Discover and message AI agents across the Viche network",
   "type": "module",
