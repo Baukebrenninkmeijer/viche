@@ -4,6 +4,8 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+// @ts-ignore — phoenix ships CJS without ESM types; runtime import works fine in Bun
+import { Socket } from "phoenix";
 
 // ── Configuration ──────────────────────────────────────────────────────────────
 
@@ -15,7 +17,6 @@ const CAPABILITIES = (process.env.VICHE_CAPABILITIES ?? "coding")
   .map((c) => c.trim())
   .filter(Boolean);
 const DESCRIPTION = process.env.VICHE_DESCRIPTION ?? null;
-const POLL_INTERVAL_S = parseInt(process.env.VICHE_POLL_INTERVAL ?? "5", 10);
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -29,15 +30,14 @@ interface RegisterResponse {
   id: string;
 }
 
-interface Message {
+interface AgentInfo {
   id: string;
-  from: string;
-  body: string;
-  type: string;
+  name?: string;
+  capabilities?: string[];
 }
 
-interface InboxResponse {
-  messages: Message[];
+interface DiscoverResponse {
+  agents: AgentInfo[];
 }
 
 // ── Registration ───────────────────────────────────────────────────────────────
@@ -89,51 +89,70 @@ async function registerWithRetry(): Promise<string> {
   throw new Error("Unreachable");
 }
 
-// ── Polling ────────────────────────────────────────────────────────────────────
+// ── WebSocket / Phoenix Channel ────────────────────────────────────────────────
 
-async function pollInbox(
-  agentId: string,
-  server: Server
-): Promise<void> {
-  try {
-    const response = await fetch(`${REGISTRY_URL}/inbox/${agentId}`);
-    if (!response.ok) {
-      process.stderr.write(
-        `Viche: poll warning — ${response.status} ${response.statusText}\n`
-      );
-      return;
-    }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PhoenixChannel = any;
 
-    const data = (await response.json()) as InboxResponse;
-    const messages = data.messages ?? [];
+let activeChannel: PhoenixChannel | null = null;
 
-    for (const msg of messages) {
-      await server.notification({
+function channelPush<T>(
+  channel: PhoenixChannel,
+  event: string,
+  payload: Record<string, unknown>
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    channel
+      .push(event, payload)
+      .receive("ok", (resp: T) => resolve(resp))
+      .receive("error", (resp: unknown) => {
+        reject(new Error(JSON.stringify(resp)));
+      })
+      .receive("timeout", () => {
+        reject(new Error("Channel push timed out"));
+      });
+  });
+}
+
+function connectWebSocket(agentId: string, server: Server): void {
+  const wsBase = REGISTRY_URL.replace(/^http/, "ws");
+  const wsUrl = `${wsBase}/agent/websocket`;
+
+  const socket = new Socket(wsUrl, { params: { agent_id: agentId } });
+  socket.connect();
+
+  const channel: PhoenixChannel = socket.channel(`agent:${agentId}`, {});
+
+  channel.on("new_message", (payload: { id: string; from: string; body: string }) => {
+    server
+      .notification({
         method: "notifications/claude/channel",
         params: {
           channel: "viche",
-          content: `[Task from ${msg.from}] ${msg.body}`,
-          meta: {
-            message_id: msg.id,
-            from: msg.from,
-          },
+          content: `[Task from ${payload.from}] ${payload.body}`,
+          meta: { message_id: payload.id, from: payload.from },
         },
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`Viche: notification error — ${msg}\n`);
       });
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`Viche: poll warning — ${message}\n`);
-  }
-}
+  });
 
-function startPollLoop(agentId: string, server: Server): void {
-  const intervalMs = POLL_INTERVAL_S * 1000;
-  const tick = () => {
-    pollInbox(agentId, server).finally(() => {
-      setTimeout(tick, intervalMs);
+  channel
+    .join()
+    .receive("ok", () => {
+      activeChannel = channel;
+      process.stderr.write(
+        `Viche: registered as ${agentId}, connected via WebSocket\n`
+      );
+    })
+    .receive("error", (resp: unknown) => {
+      process.stderr.write(
+        `Viche: channel join failed — ${JSON.stringify(resp)}\n`
+      );
+      process.exit(1);
     });
-  };
-  setTimeout(tick, intervalMs);
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -142,13 +161,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function formatAgentList(agents: AgentInfo[]): string {
+  if (agents.length === 0) {
+    return "No agents found matching that capability.";
+  }
+  const lines = agents.map((a) => {
+    const caps = a.capabilities?.join(", ") ?? "unknown";
+    const name = a.name ? ` (${a.name})` : "";
+    return `• ${a.id}${name} — capabilities: ${caps}`;
+  });
+  return `Found ${agents.length} agent(s):\n${lines.join("\n")}`;
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   const server = new Server(
     {
       name: "viche-channel",
-      version: "0.1.0",
+      version: "0.2.0",
     },
     {
       capabilities: {
@@ -156,27 +187,68 @@ async function main(): Promise<void> {
         tools: {},
       },
       instructions:
-        "Viche channel: tasks from other AI agents. Execute the task, then call viche_reply with your result.",
+        "Viche channel: discover other AI agents, send them tasks, and reply to tasks they send you.",
     }
   );
 
-  // Register agent with retry
+  // Register agent with retry (HTTP, needed before WebSocket join)
   const agentId = await registerWithRetry();
 
   // List tools handler
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
+        name: "viche_discover",
+        description:
+          "Discover other AI agents on the Viche network by capability. Returns a list of agents that match.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            capability: {
+              type: "string",
+              description:
+                "Capability to search for (e.g. 'coding', 'research', 'code-review')",
+            },
+          },
+          required: ["capability"],
+        },
+      },
+      {
+        name: "viche_send",
+        description:
+          "Send a message to another AI agent on the Viche network. Use this to delegate tasks or ask questions to other agents.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            to: {
+              type: "string",
+              description: "Target agent ID",
+            },
+            body: {
+              type: "string",
+              description: "Message content",
+            },
+            type: {
+              type: "string",
+              description:
+                "Message type: 'task', 'result', or 'ping'",
+              default: "task",
+            },
+          },
+          required: ["to", "body"],
+        },
+      },
+      {
         name: "viche_reply",
         description:
-          "Send a reply to an agent that sent you a task via Viche. Call this after completing the task.",
+          "Reply to an agent that sent you a task. This sends a 'result' message back.",
         inputSchema: {
           type: "object" as const,
           properties: {
             to: {
               type: "string",
               description:
-                "Agent ID to send the reply to (from the original message's 'from' field)",
+                "Agent ID to reply to (from the message's 'from' field)",
             },
             body: {
               type: "string",
@@ -191,67 +263,95 @@ async function main(): Promise<void> {
 
   // Call tool handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name !== "viche_reply") {
-      throw new Error(`Unknown tool: ${request.params.name}`);
+    const toolName = request.params.name;
+
+    if (!activeChannel) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Viche channel is not yet connected. Please wait a moment and try again.",
+          },
+        ],
+      };
     }
 
-    const args = request.params.arguments as { to: string; body: string };
-    const { to, body } = args;
+    if (toolName === "viche_discover") {
+      const args = request.params.arguments as { capability: string };
+      try {
+        const resp = await channelPush<DiscoverResponse>(
+          activeChannel,
+          "discover",
+          { capability: args.capability }
+        );
+        return {
+          content: [{ type: "text", text: formatAgentList(resp.agents ?? []) }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text", text: `Discovery failed: ${message}` }],
+        };
+      }
+    }
 
-    try {
-      const response = await fetch(`${REGISTRY_URL}/messages/${to}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "result",
-          from: agentId,
-          body,
-        }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
+    if (toolName === "viche_send") {
+      const args = request.params.arguments as {
+        to: string;
+        body: string;
+        type?: string;
+      };
+      const msgType = args.type ?? "task";
+      try {
+        await channelPush(activeChannel, "send_message", {
+          to: args.to,
+          body: args.body,
+          type: msgType,
+        });
         return {
           content: [
             {
               type: "text",
-              text: `Failed to send reply: ${response.status} ${response.statusText} — ${text}`,
+              text: `Message sent to ${args.to} (type: ${msgType}).`,
             },
           ],
         };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text", text: `Failed to send message: ${message}` }],
+        };
       }
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Reply sent to ${to}.`,
-          },
-        ],
-      };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Failed to send reply: ${message}`,
-          },
-        ],
-      };
     }
+
+    if (toolName === "viche_reply") {
+      const args = request.params.arguments as { to: string; body: string };
+      try {
+        await channelPush(activeChannel, "send_message", {
+          to: args.to,
+          body: args.body,
+          type: "result",
+        });
+        return {
+          content: [{ type: "text", text: `Reply sent to ${args.to}.` }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text", text: `Failed to send reply: ${message}` }],
+        };
+      }
+    }
+
+    throw new Error(`Unknown tool: ${toolName}`);
   });
 
   // Start transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  // Start polling after connection
-  startPollLoop(agentId, server);
-
-  process.stderr.write(
-    `Viche: registered as ${agentId}, polling every ${POLL_INTERVAL_S}s\n`
-  );
+  // Connect to Phoenix Channel (non-blocking; notifications arrive via WebSocket)
+  connectWebSocket(agentId, server);
 }
 
 main().catch((err) => {
