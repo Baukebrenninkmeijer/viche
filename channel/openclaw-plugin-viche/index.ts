@@ -41,7 +41,11 @@ export default definePluginEntry({
     const config: VicheConfig = parseResult.data;
 
     // Shared state: written by service on startup, read by tool handlers.
-    const state: VicheState = { agentId: null };
+    const state: VicheState = {
+      agentId: null,
+      correlations: new Map(),
+      mostRecentSessionKey: null,
+    };
 
     // Background service — registration + WebSocket lifecycle.
     const runtime = (api as unknown as { runtime: PluginRuntime }).runtime;

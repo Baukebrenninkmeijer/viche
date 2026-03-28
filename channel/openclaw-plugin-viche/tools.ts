@@ -21,9 +21,19 @@ import type {
   AgentInfo,
   AgentToolResult,
   DiscoverResponse,
+  SendMessageResponse,
   VicheConfig,
   VicheState,
 } from "./types.js";
+
+/**
+ * Minimal subset of OpenClawPluginToolContext used for session routing.
+ * OpenClawPluginToolContext is not exported from the public SDK, so we
+ * declare only the fields we need here.
+ */
+type ToolContext = {
+  sessionKey?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,8 +77,18 @@ function requireConnected(state: VicheState): AgentToolResult | null {
 // Tool registrations
 // ---------------------------------------------------------------------------
 
+/** Fallback session key used when no context session is available. */
+const MAIN_SESSION = "agent:main:main";
+
 /**
- * Register all three Viche tools on the plugin API.
+ * Register all three Viche tools on the plugin API using the factory pattern.
+ *
+ * Each tool is registered as a factory `(ctx) => tool` so that the executing
+ * session's `ctx.sessionKey` can be captured at invocation time. This enables:
+ *   - Correlation tracking: `viche_send` records `messageId → sessionKey` so
+ *     inbound "result" replies route back to the originating session.
+ *   - "most-recent" routing: `state.mostRecentSessionKey` is updated on every
+ *     `viche_send` / `viche_reply` call.
  *
  * @param api    - The OpenClaw plugin API surface.
  * @param config - Resolved plugin config.
@@ -80,169 +100,220 @@ export function registerVicheTools(
   state: VicheState,
 ): void {
   // ── viche_discover ────────────────────────────────────────────────────────
+  // Discovery does not require session context, but uses the factory pattern
+  // for consistency and forward compatibility.
 
-  api.registerTool({
-    name: "viche_discover",
-    description:
-      "Discover AI agents registered on the Viche network by capability. " +
-      "Pass '*' to list all agents. " +
-      "Returns a list of agents that match the requested capability string. " +
-      "Use this before sending a message to find the target agent ID.",
-    parameters: Type.Object({
-      capability: Type.String({
-        description:
-          "Capability to search for (e.g. 'coding', 'research', 'code-review', 'testing'). Use '*' to return all agents.",
-      }),
-      token: Type.Optional(
-        Type.String({
+  api.registerTool(
+    ((_ctx: ToolContext) => ({
+      name: "viche_discover",
+      description:
+        "Discover AI agents registered on the Viche network by capability. " +
+        "Pass '*' to list all agents. " +
+        "Returns a list of agents that match the requested capability string. " +
+        "Use this before sending a message to find the target agent ID.",
+      parameters: Type.Object({
+        capability: Type.String({
           description:
-            "Registry token to scope discovery to a private registry. Omit for global discovery.",
+            "Capability to search for (e.g. 'coding', 'research', 'code-review', 'testing'). Use '*' to return all agents.",
         }),
-      ),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { capability: string; token?: string },
-      _signal?: AbortSignal,
-    ): Promise<AgentToolResult> {
-      const queryParams = new URLSearchParams({ capability: params.capability });
-      if (params.token) queryParams.set("token", params.token);
-      const url = `${config.registryUrl}/registry/discover?${queryParams.toString()}`;
+        token: Type.Optional(
+          Type.String({
+            description:
+              "Registry token to scope discovery to a private registry. Omit for global discovery.",
+          }),
+        ),
+      }),
+      async execute(
+        _toolCallId: string,
+        params: { capability: string; token?: string },
+        _signal?: AbortSignal,
+      ): Promise<AgentToolResult> {
+        const queryParams = new URLSearchParams({ capability: params.capability });
+        if (params.token) queryParams.set("token", params.token);
+        const url = `${config.registryUrl}/registry/discover?${queryParams.toString()}`;
 
-      let resp: Response;
-      try {
-        resp = await fetch(url);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return errorResult(`Failed to reach Viche registry: ${msg}`);
-      }
+        let resp: Response;
+        try {
+          resp = await fetch(url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return errorResult(`Failed to reach Viche registry: ${msg}`);
+        }
 
-      if (!resp.ok) {
-        return errorResult(
-          `Failed to discover agents: ${resp.status} ${resp.statusText}`,
-        );
-      }
+        if (!resp.ok) {
+          return errorResult(
+            `Failed to discover agents: ${resp.status} ${resp.statusText}`,
+          );
+        }
 
-      let data: DiscoverResponse;
-      try {
-        data = (await resp.json()) as DiscoverResponse;
-      } catch {
-        return errorResult("Failed to parse discovery response from Viche.");
-      }
+        let data: DiscoverResponse;
+        try {
+          data = (await resp.json()) as DiscoverResponse;
+        } catch {
+          return errorResult("Failed to parse discovery response from Viche.");
+        }
 
-      return textResult(formatAgents(data.agents ?? []));
-    },
-  } as unknown as AnyAgentTool);
+        if (!Array.isArray(data.agents)) {
+          return errorResult(
+            "Invalid discovery response from Viche: expected 'agents' to be an array.",
+          );
+        }
+
+        return textResult(formatAgents(data.agents));
+      },
+    })) as unknown as AnyAgentTool,
+  );
 
   // ── viche_send ────────────────────────────────────────────────────────────
+  // Captures `ctx.sessionKey` to:
+  //   1. Record session activity for "most-recent" inbound routing.
+  //   2. Store a correlation entry (messageId → sessionKey) so that incoming
+  //      "result" replies can be routed back to this exact session.
 
-  api.registerTool({
-    name: "viche_send",
-    description:
-      "Send a message to another AI agent on the Viche network. " +
-      "Use this to delegate tasks, ask questions, or ping other agents. " +
-      "You must know the target agent ID (use viche_discover first if needed).",
-    parameters: Type.Object({
-      to: Type.String({
-        description: "Target agent ID (UUID format, e.g. '550e8400-e29b-41d4-a716-446655440000')",
-        pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-      }),
-      body: Type.String({
-        description: "Message content to send to the target agent",
-      }),
-      type: Type.Optional(
-        Type.String({
-          description: "Message type: 'task' (default), 'result', or 'ping'",
-          default: "task",
-        }),
-      ),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { to: string; body: string; type?: string },
-      _signal?: AbortSignal,
-    ): Promise<AgentToolResult> {
-      const guard = requireConnected(state);
-      if (guard) return guard;
+  api.registerTool(
+    ((ctx: ToolContext) => {
+      const sessionKey = ctx.sessionKey ?? MAIN_SESSION;
 
-      const msgType = params.type ?? "task";
-
-      let resp: Response;
-      try {
-        resp = await fetch(`${config.registryUrl}/messages/${params.to}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: state.agentId,
-            body: params.body,
-            type: msgType,
+      return {
+        name: "viche_send",
+        description:
+          "Send a message to another AI agent on the Viche network. " +
+          "Use this to delegate tasks, ask questions, or ping other agents. " +
+          "You must know the target agent ID (use viche_discover first if needed).",
+        parameters: Type.Object({
+          to: Type.String({
+            description:
+              "Target agent ID (UUID format, e.g. '550e8400-e29b-41d4-a716-446655440000')",
+            pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
           }),
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return errorResult(`Failed to reach Viche registry: ${msg}`);
-      }
+          body: Type.String({
+            description: "Message content to send to the target agent",
+          }),
+          type: Type.Optional(
+            Type.String({
+              description: "Message type: 'task' (default), 'result', or 'ping'",
+              default: "task",
+            }),
+          ),
+        }),
+        async execute(
+          _toolCallId: string,
+          params: { to: string; body: string; type?: string },
+          _signal?: AbortSignal,
+        ): Promise<AgentToolResult> {
+          const guard = requireConnected(state);
+          if (guard) return guard;
 
-      if (!resp.ok) {
-        return errorResult(
-          `Failed to send message: ${resp.status} ${resp.statusText}`,
-        );
-      }
+          // Track session activity for "most-recent" inbound routing.
+          state.mostRecentSessionKey = sessionKey;
 
-      return textResult(
-        `Message sent to ${params.to} (type: ${msgType}).`,
-      );
-    },
-  } as unknown as AnyAgentTool);
+          const msgType = params.type ?? "task";
+
+          let resp: Response;
+          try {
+            resp = await fetch(
+              `${config.registryUrl}/messages/${encodeURIComponent(params.to)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  from: state.agentId,
+                  body: params.body,
+                  type: msgType,
+                }),
+              },
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return errorResult(`Failed to reach Viche registry: ${msg}`);
+          }
+
+          if (!resp.ok) {
+            return errorResult(
+              `Failed to send message: ${resp.status} ${resp.statusText}`,
+            );
+          }
+
+          // Record correlation so "result" replies route back to this session.
+          try {
+            const data = (await resp.json()) as SendMessageResponse;
+            if (typeof data.message_id === "string" && data.message_id.length > 0) {
+              state.correlations.set(data.message_id, {
+                sessionKey,
+                timestamp: Date.now(),
+              });
+            }
+          } catch {
+            // Correlation tracking is best-effort; ignore parse errors.
+          }
+
+          return textResult(`Message sent to ${params.to} (type: ${msgType}).`);
+        },
+      };
+    }) as unknown as AnyAgentTool,
+  );
 
   // ── viche_reply ───────────────────────────────────────────────────────────
+  // Captures `ctx.sessionKey` to update "most-recent" session activity.
 
-  api.registerTool({
-    name: "viche_reply",
-    description:
-      "Reply to an agent that sent you a task via the Viche network. " +
-      "Sends a 'result' type message back to the originating agent. " +
-      "Use the 'from' field of the received task message as the 'to' parameter.",
-    parameters: Type.Object({
-      to: Type.String({
+  api.registerTool(
+    ((ctx: ToolContext) => {
+      const sessionKey = ctx.sessionKey ?? MAIN_SESSION;
+
+      return {
+        name: "viche_reply",
         description:
-          "Agent ID to reply to — copy from the 'from' field of the task message you received",
-      }),
-      body: Type.String({
-        description: "Your result, answer, or response to send back",
-      }),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { to: string; body: string },
-      _signal?: AbortSignal,
-    ): Promise<AgentToolResult> {
-      const guard = requireConnected(state);
-      if (guard) return guard;
-
-      let resp: Response;
-      try {
-        resp = await fetch(`${config.registryUrl}/messages/${params.to}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: state.agentId,
-            body: params.body,
-            type: "result",
+          "Reply to an agent that sent you a task via the Viche network. " +
+          "Sends a 'result' type message back to the originating agent. " +
+          "Use the 'from' field of the received task message as the 'to' parameter.",
+        parameters: Type.Object({
+          to: Type.String({
+            description:
+              "Agent ID to reply to — copy from the 'from' field of the task message you received",
           }),
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return errorResult(`Failed to reach Viche registry: ${msg}`);
-      }
+          body: Type.String({
+            description: "Your result, answer, or response to send back",
+          }),
+        }),
+        async execute(
+          _toolCallId: string,
+          params: { to: string; body: string },
+          _signal?: AbortSignal,
+        ): Promise<AgentToolResult> {
+          const guard = requireConnected(state);
+          if (guard) return guard;
 
-      if (!resp.ok) {
-        return errorResult(
-          `Failed to send reply: ${resp.status} ${resp.statusText}`,
-        );
-      }
+          // Track session activity for "most-recent" inbound routing.
+          state.mostRecentSessionKey = sessionKey;
 
-      return textResult(`Reply sent to ${params.to}.`);
-    },
-  } as unknown as AnyAgentTool);
+          let resp: Response;
+          try {
+            resp = await fetch(
+              `${config.registryUrl}/messages/${encodeURIComponent(params.to)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  from: state.agentId,
+                  body: params.body,
+                  type: "result",
+                }),
+              },
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return errorResult(`Failed to reach Viche registry: ${msg}`);
+          }
+
+          if (!resp.ok) {
+            return errorResult(
+              `Failed to send reply: ${resp.status} ${resp.statusText}`,
+            );
+          }
+
+          return textResult(`Reply sent to ${params.to}.`);
+        },
+      };
+    }) as unknown as AnyAgentTool,
+  );
 }

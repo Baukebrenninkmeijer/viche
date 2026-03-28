@@ -22,6 +22,14 @@ export interface VicheConfig {
   description?: string;
   /** Optional registry tokens for joining private registries. */
   registries?: string[];
+  /**
+   * How to route unsolicited inbound "task" messages (and "result" messages
+   * when correlation cannot be resolved).
+   *
+   * - "most-recent" — route to the session that most recently called viche_send or viche_reply (default)
+   * - "main"        — always route to `agent:main:main`
+   */
+  defaultInboundSession?: "most-recent" | "main";
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +115,15 @@ export const VicheConfigSchema = {
       return issue(["registryToken"], "must be a string");
     }
 
+    // defaultInboundSession
+    if (
+      raw.defaultInboundSession !== undefined &&
+      raw.defaultInboundSession !== "most-recent" &&
+      raw.defaultInboundSession !== "main"
+    ) {
+      return issue(["defaultInboundSession"], 'must be "most-recent" or "main"');
+    }
+
     const normalized: VicheConfig = {
       registryUrl:
         typeof raw.registryUrl === "string"
@@ -126,6 +143,14 @@ export const VicheConfigSchema = {
       normalized.registries = raw.registries as string[];
     } else if (typeof raw.registryToken === "string" && raw.registryToken.length > 0) {
       normalized.registries = [raw.registryToken];
+    }
+
+    // defaultInboundSession
+    if (
+      raw.defaultInboundSession === "most-recent" ||
+      raw.defaultInboundSession === "main"
+    ) {
+      normalized.defaultInboundSession = raw.defaultInboundSession;
     }
 
     return { success: true, data: normalized };
@@ -163,6 +188,15 @@ export const VicheConfigSchema = {
         type: "string",
         description: "Legacy: single registry token (converted to registries array). Use registries instead.",
       },
+      defaultInboundSession: {
+        type: "string",
+        enum: ["most-recent", "main"],
+        default: "most-recent",
+        description:
+          "How to route unsolicited inbound messages. " +
+          '"most-recent" routes to the session that most recently sent a Viche message (default). ' +
+          '"main" always routes to agent:main:main.',
+      },
     },
   },
 } as const;
@@ -172,11 +206,29 @@ export const VicheConfigSchema = {
 // ---------------------------------------------------------------------------
 
 /**
+ * A recorded outbound message sent via viche_send.
+ * Used to route incoming "result" replies back to the originating session.
+ */
+export interface CorrelationEntry {
+  /** OpenClaw session key that originated the send (e.g. "agent:main:main"). */
+  sessionKey: string;
+  /** Unix ms timestamp of when the message was sent (used for TTL expiry). */
+  timestamp: number;
+}
+
+/**
  * Mutable state shared between the background service and the tool handlers.
- * The service sets `agentId` on successful registration and clears it on stop.
+ *
+ * - `agentId`              — set by the service on successful registration; null when stopped.
+ * - `correlations`         — maps outbound messageId → originating sessionKey so that
+ *                            "result" replies can be routed back to the correct session.
+ * - `mostRecentSessionKey` — tracks the session that last called viche_send / viche_reply;
+ *                            used by `defaultInboundSession: "most-recent"` routing.
  */
 export interface VicheState {
   agentId: string | null;
+  correlations: Map<string, CorrelationEntry>;
+  mostRecentSessionKey: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -212,4 +264,15 @@ export interface InboundMessagePayload {
   from: string;
   body: string;
   type: string;
+  /**
+   * Optional: ID of the outbound message this is replying to.
+   * Present when the Viche server populates reply correlation.
+   * Used to route "result" messages back to the originating session.
+   */
+  replyTo?: string;
+}
+
+/** Response body from POST /messages/:agentId (Viche send endpoint). */
+export interface SendMessageResponse {
+  message_id: string;
 }
