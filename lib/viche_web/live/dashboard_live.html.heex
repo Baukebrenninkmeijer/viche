@@ -269,7 +269,7 @@
               ]
 
               avatar_color = Enum.at(avatar_colors, rem(:erlang.phash2(agent.name), 5))
-              initial = agent.name |> String.first() |> String.upcase() %>
+              initial = if agent.name, do: agent.name |> String.first() |> String.upcase(), else: "?" %>
               <div
                 class="grid grid-cols-[1fr_auto_90px_60px_80px] gap-3 items-center px-4 py-2.5 transition-colors"
                 style="border-top:1px solid var(--border)"
