@@ -51,6 +51,11 @@ defmodule Viche.AgentServer do
     GenServer.call(server, :drain_inbox)
   end
 
+  @spec inspect_inbox(GenServer.server()) :: [Message.t()]
+  def inspect_inbox(server) do
+    GenServer.call(server, :inspect_inbox)
+  end
+
   # ---------------------------------------------------------------------------
   # GenServer callbacks
   # ---------------------------------------------------------------------------
@@ -88,5 +93,10 @@ defmodule Viche.AgentServer do
   @impl GenServer
   def handle_call(:drain_inbox, _from, %Agent{inbox: inbox} = agent) do
     {:reply, inbox, %Agent{agent | inbox: []}}
+  end
+
+  @impl GenServer
+  def handle_call(:inspect_inbox, _from, %Agent{inbox: inbox} = agent) do
+    {:reply, inbox, agent}
   end
 end
