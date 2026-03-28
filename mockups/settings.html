@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viche — Settings</title>
+  <style>
+    :root[data-theme="dark"] {
+      --bg0:#2D353B; --bg1:#343F44; --bg2:#3D484D; --bg3:#475258; --bg4:#4F585E;
+      --fg:#D3C6AA; --fg-dim:#859289;
+      --green:#A7C080; --aqua:#83C092; --blue:#7FBBB3; --yellow:#DBBC7F;
+      --purple:#D699B6; --orange:#E69875; --red:#E67E80;
+      --border:rgba(255,255,255,0.07); --card-bg:#343F44; --hover:rgba(255,255,255,0.04);
+    }
+    :root[data-theme="light"] {
+      --bg0:#FDF6E3; --bg1:#F4F0D9; --bg2:#EFEBD4; --bg3:#E6E2CC; --bg4:#DDD8BE;
+      --fg:#5C6A72; --fg-dim:#829181;
+      --green:#8DA101; --aqua:#35A77C; --blue:#3A94C5; --purple:#DF69BA;
+      --yellow:#DFA000; --orange:#F57D26; --red:#F85552;
+      --border:rgba(0,0,0,0.09); --card-bg:#F4F0D9; --hover:rgba(0,0,0,0.03);
+    }
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{font-size:14px}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+      background:var(--bg0);color:var(--fg);line-height:1.5;
+      display:flex;height:100vh;overflow:hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar{width:216px;min-width:216px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column}
+    .sidebar-header{padding:18px 14px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .logo-mark{width:28px;height:28px;background:linear-gradient(135deg,var(--green),var(--aqua));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#1a2420;flex-shrink:0}
+    .logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px;color:var(--fg)}
+    .logo-sub{font-size:10px;color:var(--fg-dim);font-family:"SF Mono","Fira Code",monospace}
+    .sidebar-section{padding:10px 6px 4px}
+    .sidebar-label{font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--fg-dim);padding:0 8px;margin-bottom:2px}
+    .nav-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:6px;cursor:pointer;color:var(--fg-dim);font-size:13px;font-weight:450;transition:background .1s,color .1s;text-decoration:none;user-select:none}
+    .nav-item:hover{background:var(--hover);color:var(--fg)}
+    .nav-item.active{background:var(--hover);color:var(--fg);font-weight:500}
+    .nav-icon{width:15px;height:15px;opacity:.7;flex-shrink:0}
+    .nav-item.active .nav-icon{opacity:1}
+    .nav-badge{margin-left:auto;font-size:10px;font-weight:600;font-family:"SF Mono",monospace;background:var(--bg3);color:var(--fg-dim);padding:1px 6px;border-radius:10px}
+    .nav-badge.live{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .divider{height:1px;background:var(--border);margin:4px 6px}
+    .sidebar-spacer{flex:1}
+    .sidebar-footer{padding:10px 6px;border-top:1px solid var(--border)}
+
+    /* ── Dot ── */
+    .dot{width:6px;height:6px;border-radius:50%;display:inline-block;background:var(--green);animation:blink 2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+    /* ── Main ── */
+    .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+    .topbar{height:50px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg0);display:flex;align-items:center;padding:0 22px;gap:8px}
+    .topbar-title{font-size:13.5px;font-weight:600;color:var(--fg)}
+    .topbar-crumb{font-size:12px;color:var(--fg-dim)}
+    .topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+    .btn-ghost{background:none;border:1px solid var(--border);border-radius:6px;color:var(--fg-dim);cursor:pointer;padding:5px 10px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;transition:background .1s,color .1s}
+    .btn-ghost:hover{background:var(--hover);color:var(--fg)}
+
+    /* ── Settings Content ── */
+    .settings-scroll{flex:1;overflow-y:auto;padding:24px;padding-bottom:80px}
+    .settings-content{max-width:680px}
+
+    .section{margin-bottom:28px}
+    .section-title{font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--fg-dim);margin-bottom:10px}
+    .card{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:20px}
+    .card-danger{border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+
+    .field{margin-bottom:18px}
+    .field:last-child{margin-bottom:0}
+    .field-label{font-size:12px;font-weight:600;color:var(--fg);margin-bottom:5px;display:block}
+    .field-help{font-size:11px;color:var(--fg-dim);margin-top:4px}
+    .field-input{width:100%;background:var(--bg0);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--fg);font-family:inherit;outline:none;transition:border-color .15s}
+    .field-input:focus{border-color:var(--green)}
+    .field-input:disabled{opacity:.5;cursor:not-allowed}
+    .field-input-wrap{position:relative;display:flex;align-items:center}
+    .field-input-wrap .field-input{padding-right:60px}
+    .btn-show{position:absolute;right:6px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--fg-dim);font-size:11px;padding:2px 8px;cursor:pointer;font-family:inherit;transition:color .1s}
+    .btn-show:hover{color:var(--fg)}
+
+    /* Connection status row */
+    .status-row{display:flex;align-items:center;gap:10px;padding-top:4px}
+    .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .status-dot.green{background:var(--green)}
+    .status-dot.yellow{background:var(--yellow)}
+    .status-text{font-size:12px;font-weight:500;color:var(--fg)}
+    .btn-test{margin-left:auto}
+
+    /* ── Toggle switch ── */
+    .toggle-row{display:flex;align-items:flex-start;gap:12px;padding:6px 0}
+    .toggle-row + .toggle-row{margin-top:8px}
+    .toggle-info{flex:1}
+    .toggle-label{font-size:13px;font-weight:500;color:var(--fg)}
+    .toggle-desc{font-size:11px;color:var(--fg-dim);margin-top:2px}
+    .toggle-switch{width:40px;height:22px;background:var(--bg3);border-radius:11px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;margin-top:1px}
+    .toggle-switch.on{background:var(--green)}
+    .toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .toggle-switch.on::after{transform:translateX(18px)}
+
+    /* ── Theme selector ── */
+    .theme-cards{display:flex;gap:12px;margin-bottom:14px}
+    .theme-card{flex:1;background:var(--bg0);border:2px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:border-color .15s}
+    .theme-card.selected{border-color:var(--green)}
+    .theme-card-title{font-size:13px;font-weight:600;color:var(--fg);margin-bottom:8px}
+    .theme-swatches{display:flex;gap:6px}
+    .swatch{width:16px;height:16px;border-radius:50%;border:1px solid rgba(128,128,128,.2)}
+
+    /* ── Danger zone ── */
+    .danger-item{display:flex;align-items:center;gap:14px;padding:8px 0}
+    .danger-item + .danger-item{border-top:1px solid var(--border);padding-top:14px;margin-top:6px}
+    .danger-text{flex:1}
+    .danger-title{font-size:13px;font-weight:500;color:var(--fg)}
+    .danger-desc{font-size:11px;color:var(--fg-dim);margin-top:2px}
+    .btn-danger{background:none;border:1px solid color-mix(in srgb,var(--red) 50%,transparent);border-radius:6px;color:var(--red);cursor:pointer;padding:6px 14px;font-size:12px;font-weight:500;font-family:inherit;white-space:nowrap;transition:background .1s}
+    .btn-danger:hover{background:color-mix(in srgb,var(--red) 10%,transparent)}
+    .btn-reset{background:none;border:1px solid var(--border);border-radius:6px;color:var(--fg-dim);cursor:pointer;padding:6px 14px;font-size:12px;font-weight:500;font-family:inherit;white-space:nowrap;transition:background .1s}
+    .btn-reset:hover{background:var(--hover);color:var(--fg)}
+
+    /* Confirm inline */
+    .confirm-inline{display:none;align-items:center;gap:8px;font-size:12px;color:var(--fg-dim)}
+    .confirm-inline.visible{display:flex}
+    .confirm-inline .btn-confirm{background:var(--red);border:none;color:#fff;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+    .confirm-inline .btn-cancel{background:none;border:1px solid var(--border);color:var(--fg-dim);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit}
+    .confirm-inline .btn-cancel:hover{color:var(--fg)}
+
+    /* ── Unsaved changes bar ── */
+    .unsaved-bar{position:fixed;bottom:0;left:216px;right:0;background:var(--bg1);border-top:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:14px;transform:translateY(100%);transition:transform .25s ease;z-index:100}
+    .unsaved-bar.visible{transform:translateY(0)}
+    .unsaved-text{font-size:13px;font-weight:500;color:var(--fg);flex:1}
+    .unsaved-dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+    .btn-discard{background:none;border:1px solid var(--border);border-radius:6px;color:var(--fg-dim);cursor:pointer;padding:6px 14px;font-size:12px;font-weight:500;font-family:inherit;transition:background .1s,color .1s}
+    .btn-discard:hover{background:var(--hover);color:var(--fg)}
+    .btn-save{background:var(--green);border:none;border-radius:6px;color:#1a2420;cursor:pointer;padding:6px 18px;font-size:12px;font-weight:600;font-family:inherit;transition:opacity .1s}
+    .btn-save:hover{opacity:.9}
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ Sidebar ═══════════ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo-mark">V</div>
+    <div>
+      <div class="logo-text">Viche</div>
+      <div class="logo-sub">v0.1.0-alpha</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <a class="nav-item" href="dashboard.html">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item" href="network.html">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M7.5 17.5 10 13m4 0 2.5 4.5"/></svg>
+      Network
+    </a>
+  </div>
+  <div class="divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Agents</div>
+    <a class="nav-item" href="agents.html">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+      All Agents <span class="nav-badge">24</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+      Online <span class="nav-badge live">12</span>
+    </a>
+  </div>
+  <div class="divider"></div>
+  <div class="sidebar-section">
+    <a class="nav-item" href="sessions.html">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18m6-13h4m-4 4h4"/></svg>
+      Sessions <span class="nav-badge live">3</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 5 10-5"/></svg>
+      Inbox Monitor
+    </a>
+  </div>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-footer">
+    <a class="nav-item active" href="settings.html">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      Settings
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      GitHub
+    </a>
+  </div>
+</aside>
+
+<!-- ═══════════ Main ═══════════ -->
+<div class="main">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <span class="topbar-title">Settings</span>
+    <span class="topbar-crumb">/ configuration</span>
+    <div class="topbar-right">
+      <button class="btn-ghost" id="themeToggle" title="Toggle theme">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Settings scroll area -->
+  <div class="settings-scroll">
+    <div class="settings-content">
+
+      <!-- ── Section 1: Connection ── -->
+      <div class="section">
+        <div class="section-title">Connection</div>
+        <div class="card">
+          <div class="field">
+            <label class="field-label">Registry URL</label>
+            <input class="field-input" type="text" value="https://viche.fly.dev" data-track>
+            <div class="field-help">The Viche registry your agents connect to</div>
+          </div>
+          <div class="field">
+            <label class="field-label">API Token</label>
+            <div class="field-input-wrap">
+              <input class="field-input" id="apiToken" type="password" value="viche_tk_a8f3e2b1c9d4" data-track>
+              <button class="btn-show" id="tokenToggle">Show</button>
+            </div>
+            <div class="field-help">Used to authenticate agent registrations</div>
+          </div>
+          <div class="field">
+            <label class="field-label">WebSocket URL</label>
+            <input class="field-input" type="text" value="wss://viche.fly.dev/socket/websocket" disabled>
+            <div class="field-help">Auto-derived from registry URL</div>
+          </div>
+          <div class="status-row">
+            <span class="status-dot green" id="connDot"></span>
+            <span class="status-text" id="connText">Connected</span>
+            <button class="btn-ghost btn-test" id="testBtn">Test connection</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 2: Registry ── -->
+      <div class="section">
+        <div class="section-title">Registry</div>
+        <div class="card">
+          <div class="field">
+            <label class="field-label">Registry namespace</label>
+            <input class="field-input" type="text" placeholder="public" data-track>
+            <div class="field-help">Leave blank for public registry. Enter a token for private namespace.</div>
+          </div>
+          <div class="field">
+            <label class="field-label">Default agent name prefix</label>
+            <input class="field-input" type="text" value="my-agent" data-track>
+            <div class="field-help">Prepended to generated agent names on the onboarding page</div>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Require auth for UI access</div>
+              <div class="toggle-desc">Protect Mission Control behind a token. Recommended for production.</div>
+            </div>
+            <div class="toggle-switch" data-toggle></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 3: Appearance ── -->
+      <div class="section">
+        <div class="section-title">Appearance</div>
+        <div class="card">
+          <div class="theme-cards">
+            <div class="theme-card selected" id="themeDark" data-theme-pick="dark">
+              <div class="theme-card-title">Dark</div>
+              <div class="theme-swatches">
+                <span class="swatch" style="background:#2D353B"></span>
+                <span class="swatch" style="background:#D3C6AA"></span>
+                <span class="swatch" style="background:#A7C080"></span>
+                <span class="swatch" style="background:#7FBBB3"></span>
+              </div>
+            </div>
+            <div class="theme-card" id="themeLight" data-theme-pick="light">
+              <div class="theme-card-title">Light</div>
+              <div class="theme-swatches">
+                <span class="swatch" style="background:#FDF6E3"></span>
+                <span class="swatch" style="background:#5C6A72"></span>
+                <span class="swatch" style="background:#8DA101"></span>
+                <span class="swatch" style="background:#3A94C5"></span>
+              </div>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Show live activity feed on dashboard</div>
+            </div>
+            <div class="toggle-switch on" data-toggle></div>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Animate network graph</div>
+            </div>
+            <div class="toggle-switch on" data-toggle></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 4: Danger Zone ── -->
+      <div class="section">
+        <div class="section-title">Danger Zone</div>
+        <div class="card card-danger">
+          <div class="danger-item">
+            <div class="danger-text">
+              <div class="danger-title">Clear all agent data</div>
+              <div class="danger-desc">Deregister all agents and clear the registry</div>
+            </div>
+            <button class="btn-danger" data-danger="clear">Clear data</button>
+            <div class="confirm-inline" data-confirm="clear">
+              Are you sure?
+              <button class="btn-confirm" data-do="clear">Confirm</button>
+              <button class="btn-cancel" data-cancel="clear">Cancel</button>
+            </div>
+          </div>
+          <div class="danger-item">
+            <div class="danger-text">
+              <div class="danger-title">Reset settings</div>
+              <div class="danger-desc">Restore all settings to defaults</div>
+            </div>
+            <button class="btn-reset" data-danger="reset">Reset</button>
+            <div class="confirm-inline" data-confirm="reset">
+              Are you sure?
+              <button class="btn-confirm" data-do="reset">Confirm</button>
+              <button class="btn-cancel" data-cancel="reset">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /settings-content -->
+  </div><!-- /settings-scroll -->
+
+  <!-- Unsaved changes bar -->
+  <div class="unsaved-bar" id="unsavedBar">
+    <span class="unsaved-dot"></span>
+    <span class="unsaved-text">You have unsaved changes</span>
+    <button class="btn-discard" id="discardBtn">Discard</button>
+    <button class="btn-save" id="saveBtn">Save changes</button>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+  /* ── Theme toggle (topbar button) ── */
+  const root = document.documentElement;
+  const themeToggle = document.getElementById('themeToggle');
+  const themeDark = document.getElementById('themeDark');
+  const themeLight = document.getElementById('themeLight');
+
+  function setTheme(t) {
+    root.setAttribute('data-theme', t);
+    themeDark.classList.toggle('selected', t === 'dark');
+    themeLight.classList.toggle('selected', t === 'light');
+    showUnsaved();
+  }
+
+  themeToggle.addEventListener('click', () => {
+    setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ── Theme selector cards ── */
+  document.querySelectorAll('[data-theme-pick]').forEach(card => {
+    card.addEventListener('click', () => setTheme(card.dataset.themePick));
+  });
+
+  /* ── Toggle switches ── */
+  document.querySelectorAll('[data-toggle]').forEach(sw => {
+    sw.addEventListener('click', () => {
+      sw.classList.toggle('on');
+      showUnsaved();
+    });
+  });
+
+  /* ── Show/hide API token ── */
+  const apiToken = document.getElementById('apiToken');
+  const tokenToggle = document.getElementById('tokenToggle');
+  tokenToggle.addEventListener('click', () => {
+    const showing = apiToken.type === 'text';
+    apiToken.type = showing ? 'password' : 'text';
+    tokenToggle.textContent = showing ? 'Show' : 'Hide';
+  });
+
+  /* ── Test connection ── */
+  const testBtn = document.getElementById('testBtn');
+  const connDot = document.getElementById('connDot');
+  const connText = document.getElementById('connText');
+  testBtn.addEventListener('click', () => {
+    testBtn.disabled = true;
+    testBtn.textContent = 'Testing...';
+    connDot.className = 'status-dot yellow';
+    connText.textContent = 'Testing...';
+    setTimeout(() => {
+      connDot.className = 'status-dot green';
+      connText.textContent = 'Connected';
+      testBtn.textContent = 'Test connection';
+      testBtn.disabled = false;
+    }, 1500);
+  });
+
+  /* ── Danger zone confirm/cancel ── */
+  document.querySelectorAll('[data-danger]').forEach(btn => {
+    const key = btn.dataset.danger;
+    const confirm = document.querySelector(`[data-confirm="${key}"]`);
+    btn.addEventListener('click', () => {
+      btn.style.display = 'none';
+      confirm.classList.add('visible');
+    });
+  });
+  document.querySelectorAll('[data-cancel]').forEach(btn => {
+    const key = btn.dataset.cancel;
+    const trigger = document.querySelector(`[data-danger="${key}"]`);
+    const confirm = document.querySelector(`[data-confirm="${key}"]`);
+    btn.addEventListener('click', () => {
+      confirm.classList.remove('visible');
+      trigger.style.display = '';
+    });
+  });
+  document.querySelectorAll('[data-do]').forEach(btn => {
+    const key = btn.dataset.do;
+    const trigger = document.querySelector(`[data-danger="${key}"]`);
+    const confirm = document.querySelector(`[data-confirm="${key}"]`);
+    btn.addEventListener('click', () => {
+      confirm.classList.remove('visible');
+      trigger.style.display = '';
+      trigger.textContent = 'Done';
+      trigger.disabled = true;
+      setTimeout(() => {
+        trigger.textContent = key === 'clear' ? 'Clear data' : 'Reset';
+        trigger.disabled = false;
+      }, 2000);
+    });
+  });
+
+  /* ── Unsaved changes bar ── */
+  const unsavedBar = document.getElementById('unsavedBar');
+  let dirty = false;
+
+  function showUnsaved() {
+    if (!dirty) {
+      dirty = true;
+      unsavedBar.classList.add('visible');
+    }
+  }
+
+  function hideUnsaved() {
+    dirty = false;
+    unsavedBar.classList.remove('visible');
+  }
+
+  document.querySelectorAll('[data-track]').forEach(input => {
+    input.addEventListener('input', showUnsaved);
+  });
+
+  document.getElementById('discardBtn').addEventListener('click', hideUnsaved);
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    hideUnsaved();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Mesh Mission Control</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+        body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0b; color: #d1d1d1; }
+        .crt-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%; pointer-events: none; z-index: 100;
+        }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 20s linear infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <div class="crt-overlay"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const AGENTS = [
+            { id: 'a1b2', name: 'translator', color: '#00f3ff' },
+            { id: 'e5f6', name: 'code-review', color: '#7000ff' },
+            { id: 'c3d4', name: 'planner', color: '#00ff41' },
+            { id: 'i9j0', name: 'debug', color: '#ffb300' },
+            { id: 'aris', name: 'external', color: '#ff0055' },
+        ];
+
+        const LINKS = [
+            { source: 'a1b2', target: 'e5f6' },
+            { source: 'e5f6', target: 'aris' },
+            { source: 'c3d4', target: 'a1b2' },
+            { source: 'i9j0', target: 'c3d4' },
+            { source: 'aris', target: 'c3d4' }
+        ];
+
+        function NetworkGraph() {
+            const svgRef = useRef();
+            useEffect(() => {
+                const width = 600, height = 450;
+                const svg = d3.select(svgRef.current);
+                svg.selectAll("*").remove();
+
+                const sim = d3.forceSimulation(AGENTS)
+                    .force("link", d3.forceLink(LINKS).id(d => d.id).distance(150))
+                    .force("charge", d3.forceManyBody().strength(-800))
+                    .force("center", d3.forceCenter(width / 2, height / 2));
+
+                const link = svg.append("g").attr("stroke", "#222").selectAll("line")
+                    .data(LINKS).join("line").attr("stroke-width", 1).attr("stroke-dasharray", "5,5");
+
+                const node = svg.append("g").selectAll("g")
+                    .data(AGENTS).join("g").attr("class", "cursor-pointer");
+
+                node.append("circle").attr("r", 14).attr("fill", "none").attr("stroke", d => d.color).attr("stroke-width", 1).attr("class", "animate-pulse");
+                node.append("circle").attr("r", 4).attr("fill", d => d.color);
+                node.append("text").text(d => d.id).attr("x", 18).attr("y", 5).attr("fill", "#666").attr("font-size", "10px");
+
+                sim.on("tick", () => {
+                    link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                    node.attr("transform", d => `translate(${d.x},${d.y})`);
+                });
+
+                const interval = setInterval(() => {
+                    const l = LINKS[Math.floor(Math.random() * LINKS.length)];
+                    const beam = svg.append("circle").attr("r", 3).attr("fill", "#fff").attr("cx", l.source.x).attr("cy", l.source.y);
+                    beam.transition().duration(800).attr("cx", l.target.x).attr("cy", l.target.y).remove();
+                }, 1200);
+
+                return () => { sim.stop(); clearInterval(interval); };
+            }, []);
+            return <svg ref={svgRef} width="100%" height="100%" viewBox="0 0 600 450" />;
+        }
+
+        function App() {
+            const [logs, setLogs] = useState([]);
+            const [m, setM] = useState({ msg: 47.2, up: 99.8 });
+
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    const s = AGENTS[Math.floor(Math.random() * AGENTS.length)];
+                    const t = AGENTS[Math.floor(Math.random() * AGENTS.length)];
+                    if (s.id !== t.id) {
+                        const newLog = { 
+                            id: Date.now(), 
+                            msg: `${s.id} -> ${t.id}`, 
+                            time: new Date().toLocaleTimeString(), 
+                            burst: Math.random() > 0.8 
+                        };
+                        setLogs(prev => [newLog, ...prev].slice(0, 10));
+                        setM({ msg: (45 + Math.random() * 5).toFixed(1), up: 99.8 });
+                    }
+                }, 2000);
+                return () => clearInterval(timer);
+            }, []);
+
+            return (
+                <div className="p-6 h-screen flex flex-col gap-4 overflow-hidden">
+                    <header className="grid grid-cols-5 gap-4 border border-white/10 p-4 bg-black/40">
+                        <div className="border-r border-white/5"><div className="text-[10px] opacity-40">AGENTS</div><div className="text-2xl font-bold text-cyan-400">12 <span className="text-xs">+2</span></div></div>
+                        <div className="border-r border-white/5"><div className="text-[10px] opacity-40">MSG/SEC</div><div className="text-2xl font-bold text-yellow-500">{m.msg}</div></div>
+                        <div className="border-r border-white/5"><div className="text-[10px] opacity-40">INBOX Q</div><div className="text-2xl font-bold text-purple-500">23</div></div>
+                        <div className="border-r border-white/5"><div className="text-[10px] opacity-40">DISCOVER</div><div className="text-2xl font-bold text-green-500">156</div></div>
+                        <div><div className="text-[10px] opacity-40">UPTIME</div><div className="text-2xl font-bold text-blue-500">{m.up}%</div></div>
+                    </header>
+
+                    <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+                        <div className="col-span-3 border border-white/10 p-4 bg-black/20 overflow-y-auto">
+                            <div className="text-[10px] opacity-30 font-bold mb-4 tracking-widest">AGENT ROSTER</div>
+                            {AGENTS.map(a => (
+                                <div key={a.id} className="mb-4 border-l-2 border-white/5 pl-3 hover:border-cyan-500 transition-colors">
+                                    <div className="text-sm font-bold">{a.id}</div>
+                                    <div className="text-[10px] opacity-40 italic">{a.name}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="col-span-6 border border-white/10 relative bg-black/40 overflow-hidden">
+                            <NetworkGraph />
+                            <div className="absolute top-4 left-4 text-[10px] text-cyan-500 animate-pulse">● LIVE MESH ACTIVE</div>
+                        </div>
+
+                        <div className="col-span-3 border border-white/10 p-4 bg-black/20 overflow-hidden">
+                            <div className="text-[10px] opacity-30 font-bold mb-4 tracking-widest">EVENT STREAM</div>
+                            <div className="space-y-4">
+                                {logs.map(l => (
+                                    <div key={l.id} className={`text-[11px] border-b border-white/5 pb-2 ${l.burst ? 'text-orange-500 animate-pulse' : 'opacity-80'}`}>
+                                        <div className="opacity-40">{l.time}</div>
+                                        <div className="font-bold uppercase tracking-tighter">{l.msg}</div>
+                                        {l.burst && <div className="text-[9px]">CRITICAL BURST DETECTED</div>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <footer className="border border-white/10 bg-black h-8 overflow-hidden flex items-center">
+                        <div className="animate-marquee text-[10px] text-cyan-500/60 uppercase font-bold">
+                           • System Secure • {logs.length > 0 ? logs[0].msg : 'Scanning...'} • All nodes healthy • Network latency 12ms • Uptime verified •
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
