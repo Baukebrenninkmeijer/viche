@@ -27,9 +27,10 @@ import topbar from "../vendor/topbar"
 import { NetworkGraph } from "./hooks/network_graph"
 import { CopyConfig, CopyToClipboard, CopyOnClick } from "./hooks/copy_config"
 import { CounterPop } from "./hooks/counter_pop"
+import { GithubStars } from "./hooks/github_stars"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const Hooks = { ...colocatedHooks, NetworkGraph, CopyConfig, CopyToClipboard, CopyOnClick, CounterPop }
+const Hooks = { ...colocatedHooks, NetworkGraph, CopyConfig, CopyToClipboard, CopyOnClick, CounterPop, GithubStars }
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
