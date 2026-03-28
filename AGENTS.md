@@ -2,116 +2,562 @@
 
 **Viche is the Erlang actor model for the internet.** Agents register via HTTP, discover each other by capability, and exchange async messages through durable in-memory inboxes backed by OTP GenServer processes.
 
-## Architecture Overview
+## Purpose & Audience
 
-### Process Tree
+This document is optimized for **AI coding agents** working on the Viche codebase. It provides:
+- Architectural decisions and boundaries
+- Module responsibilities and dependencies
+- Conventions for agent IDs, messages, and protocols
+- Integration patterns for plugins
+
+Use this guide to understand where new code belongs, what dependencies are allowed, and how the system flows from registration through discovery to real-time messaging.
+
+---
+
+## Architecture Snapshot
+
+### Supervision Tree
+
 ```
-Application
-├── Viche.AgentSupervisor (DynamicSupervisor)
+Viche.Supervisor (one_for_one)
+├── VicheWeb.Telemetry
+├── Viche.Repo
+├── DNSCluster
+├── Phoenix.PubSub (name: Viche.PubSub)
+├── Registry (name: Viche.AgentRegistry, keys: :unique)
+├── DynamicSupervisor (name: Viche.AgentSupervisor, strategy: :one_for_one)
 │   └── Viche.AgentServer (GenServer per agent)
-└── Viche.AgentRegistry (Elixir Registry, :unique keys)
+└── VicheWeb.Endpoint
 ```
 
-### Key Modules
+### Module Map by Layer
 
-**Core Domain:**
-- `Viche.Agent` — agent struct (id, name, capabilities, description, inbox)
+**Viche Domain (Core Business Logic):**
+- `Viche.Agent` — agent struct (id, name, capabilities, description, registries, inbox, connection_type, last_activity, polling_timeout_ms, registered_at)
 - `Viche.Message` — message struct (id, type, from, body, sent_at)
 - `Viche.Agents` — context module (public API for agent operations)
-
-**OTP Layer:**
 - `Viche.AgentServer` — GenServer per agent, holds inbox state (in-memory)
 - `Viche.AgentSupervisor` — DynamicSupervisor for agent processes
 - `Viche.AgentRegistry` — Elixir Registry for agent lookup by ID
 
-**Web Layer (REST JSON + WebSocket):**
+**VicheWeb Delivery (REST JSON + WebSocket):**
+- `VicheWeb.HealthController` — health check endpoint
+- `VicheWeb.PageController` — home page
+- `VicheWeb.WellKnownController` — `/.well-known/agent-registry` protocol descriptor
 - `VicheWeb.RegistryController` — registration + discovery endpoints
 - `VicheWeb.MessageController` — message sending endpoint
 - `VicheWeb.InboxController` — inbox read endpoint
-- `VicheWeb.WellKnownController` — `/.well-known/agent-registry` for zero-config onboarding
 - `VicheWeb.AgentSocket` — WebSocket connection handler
 - `VicheWeb.AgentChannel` — Phoenix Channel for real-time message push
 
-**MCP Integration:**
-- `channel/` directory — Claude Code MCP Channel (TypeScript/Bun)
+**Plugin Integrations (`channel/`):**
+- `viche-channel.ts` — Claude Code MCP Channel (TypeScript/Bun)
+- `openclaw-plugin-viche/` — OpenClaw Plugin SDK integration
+- `opencode-plugin-viche/` — OpenCode Plugin SDK integration
+
+### Core Data Structures
+
+**Agent struct** (`Viche.Agent`):
+- `id` — UUID v4 (36 characters, e.g. `"550e8400-e29b-41d4-a716-446655440000"`)
+- `name` — human-readable name (optional)
+- `capabilities` — list of lowercase strings (e.g. `["coding", "refactoring"]`)
+- `description` — short description (optional)
+- `registries` — list of registry tokens (default `["global"]`)
+- `inbox` — list of `Message` structs (in-memory)
+- `connection_type` — `:websocket` or `:long_poll`
+- `last_activity` — DateTime or nil
+- `polling_timeout_ms` — positive integer (default 60,000)
+- `registered_at` — DateTime
+
+**Message struct** (`Viche.Message`):
+- `id` — "msg-" prefix + UUID (e.g. `"msg-550e8400-e29b-41d4-a716-446655440000"`)
+- `type` — one of `"task"`, `"result"`, `"ping"`
+- `from` — sender identifier (string)
+- `body` — message content (string)
+- `sent_at` — DateTime
 
 ### Tech Stack
-- Elixir + Phoenix 1.8
-- PostgreSQL (Ecto) — though agent inboxes are in-memory (GenServer state)
-- OTP: GenServer + DynamicSupervisor + Registry
-- REST JSON + WebSocket (Phoenix Channels)
-- Claude Code integration: MCP Channel (TypeScript/Bun)
 
-## Viche-Specific Guidelines
+- **Elixir + Phoenix 1.8** — web framework
+- **PostgreSQL** — configured via Ecto but **unused** (all state is in-memory via GenServer)
+- **OTP** — GenServer + DynamicSupervisor + Registry + PubSub
+- **REST JSON + WebSocket** — Phoenix Channels for real-time push
+- **TypeScript/Bun** — plugin runtime for Claude Code, OpenClaw, OpenCode
 
-### Agent & Message Conventions
-- Agent IDs are **8-character hex strings** (e.g. `"a1b2c3d4"`)
-- Message IDs use **"msg-" prefix** followed by UUID (e.g. `"msg-550e8400-e29b-41d4-a716-446655440000"`)
-- Inbox messages are **auto-consumed on read** — once fetched, they're removed from the GenServer state
-- Agent capabilities are **lowercase strings** (e.g. `"code-review"`, `"translation"`)
-- Agent discovery is **capability-based** — clients query by capability, not by agent ID
+**Important:** There are **no Ecto schemas or migrations**. `Agent` and `Message` are plain structs. All state lives in GenServer processes.
+
+---
+
+## Message Flows
+
+### 1. Registration
+
+**HTTP POST** `/registry/register`
+
+```json
+{
+  "name": "my-agent",
+  "capabilities": ["coding", "refactoring"],
+  "description": "AI coding assistant",
+  "registries": ["team-alpha"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-agent",
+  "capabilities": ["coding", "refactoring"],
+  "description": "AI coding assistant"
+}
+```
+
+**Flow:**
+1. `VicheWeb.RegistryController.register/2` receives request
+2. Calls `Viche.Agents.register_agent/1`
+3. Generates UUID via `Ecto.UUID.generate()`
+4. Starts `Viche.AgentServer` under `Viche.AgentSupervisor`
+5. Registers in `Viche.AgentRegistry` with agent ID as key
+6. Broadcasts `"agent_joined"` to `registry:{token}` topics
+7. Returns agent info to client
+
+### 2. Discovery
+
+**HTTP GET** `/registry/discover?capability=coding`
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "my-agent",
+      "capabilities": ["coding", "refactoring"],
+      "description": "AI coding assistant"
+    }
+  ]
+}
+```
+
+**Flow:**
+1. `VicheWeb.RegistryController.discover/2` receives request
+2. Calls `Viche.Agents.discover/1` with `%{capability: "coding", registry: "global"}`
+3. Scans `Viche.AgentRegistry` for agents with matching capability in the specified registry
+4. Returns list of agent info maps
+
+**Discovery is namespace-scoped:** Use `?capability=coding&registry=team-alpha` to search within a private registry.
+
+### 3. Messaging
+
+**HTTP POST** `/messages/{agent_id}`
+
+```json
+{
+  "from": "sender-agent-id",
+  "body": "Review this PR",
+  "type": "task"
+}
+```
+
+**Response:**
+
+```json
+{
+  "message_id": "msg-550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Flow:**
+1. `VicheWeb.MessageController.send_message/2` receives request
+2. Calls `Viche.Agents.send_message/1`
+3. Generates message ID: `"msg-#{Ecto.UUID.generate()}"`
+4. Looks up agent in `Viche.AgentRegistry`
+5. Calls `Viche.AgentServer.receive_message/2` to append to inbox
+6. Broadcasts `"new_message"` to `agent:{agent_id}` Phoenix Channel
+7. Returns message ID immediately (fire-and-forget)
+
+**Messaging is cross-namespace:** You can send messages to any agent UUID, regardless of registry membership.
+
+### 4. Real-Time Push (WebSocket)
+
+**WebSocket** `/agent/websocket?agent_id={agent_id}`
+
+**Channel topics:**
+- `agent:{agent_id}` — receive messages, send/discover/inspect/drain
+- `registry:{token}` — receive agent_joined/agent_left broadcasts
+
+**Server → Client events:**
+- `new_message` — pushed when a message arrives
+- `agent_joined` — pushed on registry topics when an agent registers
+- `agent_left` — pushed on registry topics when an agent deregisters
+
+**Client → Server events:**
+- `discover` — find agents by capability or name
+- `send_message` — send a message to another agent
+- `inspect_inbox` — peek at inbox without consuming
+- `drain_inbox` — consume and return all inbox messages
+
+**Flow:**
+1. Client connects to `/agent/websocket?agent_id={id}`
+2. `VicheWeb.AgentSocket.connect/3` validates agent_id param (no token auth)
+3. Client joins `agent:{agent_id}` channel
+4. `VicheWeb.AgentChannel.join/3` notifies `AgentServer` via `:websocket_connected`
+5. AgentServer sets `connection_type: :websocket`
+6. When messages arrive, `Viche.Agents.send_message/1` broadcasts to channel
+7. Client receives `new_message` event in real-time
+
+---
+
+## Design Boundaries
+
+### Layer Responsibilities
+
+| Layer | Responsibilities | Can depend on | Must not do | Public entrypoints |
+|-------|------------------|---------------|-------------|-------------------|
+| **Viche Domain** | Agent lifecycle, message routing, inbox management, discovery logic | OTP primitives (GenServer, Registry, DynamicSupervisor) | Call VicheWeb modules, know about HTTP/WebSocket | `Viche.Agents` context functions |
+| **VicheWeb Delivery** | HTTP/WebSocket endpoints, request validation, response formatting | Viche domain (`Viche.Agents`), Phoenix primitives | Directly call `AgentServer` or `AgentSupervisor`, implement business logic | Controllers, Channels, Socket |
+| **Plugins (`channel/`)** | Client-side integration, tool definitions, WebSocket lifecycle | VicheWeb HTTP API, Phoenix Channel client | Directly access Viche domain, bypass HTTP API | Plugin entry points, tool handlers |
+
+### Dependency Direction
+
+```
+channel/ (plugins)
+    ↓ HTTP + WebSocket
+VicheWeb (delivery)
+    ↓ function calls
+Viche (domain)
+    ↓ OTP primitives
+GenServer, Registry, DynamicSupervisor
+```
+
+**NEVER reverse this flow.** Domain code must not call web layer. Web layer must not call OTP primitives directly (use `Viche.Agents` context).
+
+### Where Should New Code Go?
+
+**Adding a new agent capability?**
+→ Extend `Viche.Agent` struct and `Viche.Agents` context functions
+
+**Adding a new HTTP endpoint?**
+→ Create controller in `VicheWeb`, call `Viche.Agents` functions
+
+**Adding a new WebSocket event?**
+→ Add `handle_in/3` clause in `VicheWeb.AgentChannel`, call `Viche.Agents` functions
+
+**Adding a new plugin?**
+→ Create new directory under `channel/`, implement shared tool contract (viche_discover, viche_send, viche_reply)
+
+**Adding business logic?**
+→ Add to `Viche.Agents` context module, **never** in controllers or channels
+
+---
+
+## Plugin Integration Guide
+
+All three plugins share a common contract:
+
+### Shared Plugin Contract
+
+**Tools exposed to LLM:**
+- `viche_discover` — find agents by capability or name
+- `viche_send` — send a message to another agent
+- `viche_reply` — reply to a task with a result (type: "result")
+
+**Transport:**
+- HTTP for registration, discovery, messaging
+- WebSocket (Phoenix Channel) for real-time message push
+
+**Environment variables:**
+- `VICHE_REGISTRY_URL` — registry base URL (default: `http://localhost:4000`)
+- `VICHE_CAPABILITIES` — comma-separated capabilities (default: `["coding"]`)
+- `VICHE_AGENT_NAME` — human-readable name
+- `VICHE_DESCRIPTION` — short description
+- `VICHE_REGISTRY_TOKEN` — comma-separated registry tokens (or auto-generated)
+
+---
+
+### Claude Code MCP Channel
+
+**Location:** `channel/viche-channel.ts`
+
+**Protocol:** MCP (Model Context Protocol) via stdio
+
+**Runtime:** Bun
+
+**Lifecycle:**
+- Loaded via `.mcp.json` configuration
+- Auto-registers on startup
+- Connects via WebSocket to `agent:{id}` channel
+- Exposes tools to Claude Code session
+
+**Launch command:**
+```bash
+claude --dangerously-load-development-channels server:viche --dangerously-skip-permissions
+```
+
+**Prerequisites:**
+- Phoenix server must be running first: `iex -S mix phx.server`
+
+**Inbound message handling:**
+- Messages arrive via WebSocket `new_message` event
+- Injected into Claude Code session as text prompt
+
+---
+
+### OpenClaw Plugin
+
+**Location:** `channel/openclaw-plugin-viche/`
+
+**SDK:** OpenClaw Plugin SDK
+
+**Architecture:** Single agent per gateway
+
+**Lifecycle:**
+- Registers on gateway startup (3 retries, 2 s backoff)
+- Connects via WebSocket to `agent:{id}` channel
+- Inbound messages routed via correlation or "most-recent" session
+- Cleanup on gateway stop
+
+**Validation:** TypeBox schemas for API responses
+
+**Inbound message handling:**
+- Messages arrive via WebSocket `new_message` event
+- Injected into main session via `runtime.subagent.run()`
+
+**Installation:**
+```bash
+npm install @ikatkov/openclaw-plugin-viche
+# or
+openclaw plugins install @ikatkov/openclaw-plugin-viche
+```
+
+**Configuration:** `~/.openclaw/openclaw.json`
+
+```jsonc
+{
+  "plugins": {
+    "allow": ["viche"],
+    "entries": {
+      "viche": {
+        "enabled": true,
+        "config": {
+          "registryUrl": "http://localhost:4000",
+          "capabilities": ["coding", "refactoring"],
+          "agentName": "openclaw-main",
+          "description": "OpenClaw AI coding assistant"
+        }
+      }
+    }
+  },
+  "tools": {
+    "allow": ["viche"]
+  }
+}
+```
+
+---
+
+### OpenCode Plugin
+
+**Location:** `channel/opencode-plugin-viche/`
+
+**SDK:** OpenCode Plugin SDK
+
+**Architecture:** Per-session agents (ROOT sessions only)
+
+**Lifecycle:**
+- Registers on `session.created` event (ROOT sessions only)
+- Subtask sessions (with `parentID`) are skipped
+- Connects via WebSocket to `agent:{id}` channel
+- Cleanup on `session.deleted` event
+
+**Validation:** Zod schemas for API responses
+
+**Config persistence:** Auto-generates registry token and persists to `.opencode/viche.json`
+
+**Inbound message handling:**
+- Messages arrive via WebSocket `new_message` event
+- Injected into active session via `client.run()`
+
+**Installation:** Add re-export shim to `.opencode/plugins/viche.ts`:
+
+```typescript
+export { default } from "../../channel/opencode-plugin-viche/index.js";
+```
+
+**Configuration:** `.opencode/viche.json`
+
+```jsonc
+{
+  "registryUrl": "http://localhost:4000",
+  "capabilities": ["coding", "refactoring"],
+  "agentName": "opencode-main",
+  "description": "OpenCode AI coding assistant"
+}
+```
+
+**Config resolution order (highest → lowest priority):**
+1. Environment variables (`VICHE_REGISTRY_TOKEN` CSV → `registries[]`)
+2. `.opencode/viche.json` (`registries[]` → `registryToken`)
+3. Auto-generate and persist to `.opencode/viche.json`
+
+---
+
+## Viche-Specific Conventions
+
+### Agent IDs
+- **Format:** UUID v4 (36 characters)
+- **Example:** `"550e8400-e29b-41d4-a716-446655440000"`
+- **Generation:** `Ecto.UUID.generate()` in `lib/viche/agents.ex:304-306`
+
+### Message IDs
+- **Format:** "msg-" prefix + UUID
+- **Example:** `"msg-550e8400-e29b-41d4-a716-446655440000"`
+- **Generation:** `"msg-#{Ecto.UUID.generate()}"` in `lib/viche/agents.ex:309-311`
+
+### Message Types
+- **Valid types:** `"task"`, `"result"`, `"ping"`
+- **Default:** `"task"`
+- **Validation:** `Viche.Message.valid_type?/1`
+
+### Inbox Behavior
+- **Inspect:** `Viche.Agents.inspect_inbox/1` — peek without consuming
+- **Drain:** `Viche.Agents.drain_inbox/1` — consume all messages atomically
+- **Auto-consumed:** Messages are removed from GenServer state after drain
+- **Durability:** Messages are also broadcast via Phoenix Channel for real-time delivery
+
+### Capabilities
+- **Format:** Lowercase strings
+- **Examples:** `"coding"`, `"refactoring"`, `"translation"`
+- **Discovery:** Capability-based queries via `Viche.Agents.discover/1`
+
+### Registry Tokens
+- **Format:** 4-256 characters, alphanumeric + `.`, `_`, `-`
+- **Validation:** `Viche.Agents.valid_token?/1` using regex `~r/^[a-zA-Z0-9._-]+$/`
+- **Default:** `"global"` namespace
+- **Private registries:** Agents can join multiple namespaces
+
+### WebSocket Authentication
+- **Required param:** `agent_id` only
+- **No token auth:** Connection is accepted if `agent_id` is a non-empty string
+- **Implementation:** `lib/viche_web/channels/agent_socket.ex:18-23`
+
+---
+
+## API Reference
+
+### REST Endpoints
+
+| Method | Path | Controller | Purpose |
+|--------|------|------------|---------|
+| GET | `/health` | HealthController | Health check |
+| GET | `/` | PageController | Home page |
+| GET | `/.well-known/agent-registry` | WellKnownController | Protocol descriptor |
+| POST | `/registry/register` | RegistryController | Register agent |
+| GET | `/registry/discover` | RegistryController | Discover by capability/name |
+| POST | `/messages/:agent_id` | MessageController | Send message |
+| GET | `/inbox/:agent_id` | InboxController | Read & consume inbox |
+
+### WebSocket
+
+**Path:** `/agent/websocket`
+
+**Socket:** `VicheWeb.AgentSocket`
+
+**Channels:**
+- `agent:*` — agent-specific channel
+- `registry:*` — registry-specific channel
+
+**Handler:** `VicheWeb.AgentChannel`
+
+**Client → Server events:**
+- `discover` — find agents by capability or name
+- `send_message` — send a message to another agent
+- `inspect_inbox` — peek at inbox without consuming
+- `drain_inbox` — consume and return all inbox messages
+
+**Server → Client events:**
+- `new_message` — pushed when a message arrives
+- `agent_joined` — pushed on registry topics when an agent registers
+- `agent_left` — pushed on registry topics when an agent deregisters
+
+---
+
+## Project Guidelines
+
+### Quality Gates
+
+- **Always** run `mix precommit` when done with changes
+- This runs: compilation with warnings-as-errors, dependency check, formatting, Credo (strict), tests, and Dialyzer
+- Fix all issues before committing
+
+### HTTP Client
+
+- **Use** `:req` (`Req`) library for HTTP requests
+- **Avoid** `:httpoison`, `:tesla`, and `:httpc`
+- Req is included by default and is the preferred HTTP client for Phoenix apps
 
 ### OTP Process Management
-- **Always** use `Viche.Agents` context functions — never interact with `AgentServer` or `AgentSupervisor` directly
+
+- **Always** use `Viche.Agents` context functions
+- **Never** interact with `AgentServer` or `AgentSupervisor` directly
 - Agent processes are supervised by `DynamicSupervisor` — they restart on crash
 - Registry lookups use `{:via, Registry, {Viche.AgentRegistry, agent_id}}`
 - When testing agent processes, **always** use `start_supervised!/1` to ensure cleanup
 
-### WebSocket & Real-Time Messaging
-- Phoenix Channels are used for real-time message push to connected agents
-- Channel topic format: `"agent:{agent_id}"`
-- Agents must authenticate via token on WebSocket connection
-- Messages pushed via Channel are **also stored in GenServer inbox** for durability
+### Testing Conventions
 
-## Project Guidelines
+- **Always use `start_supervised!/1`** to start processes in tests
+- **Avoid** `Process.sleep/1` and `Process.alive?/1` in tests
+- Instead of sleeping to wait for a process to finish, **always** use `Process.monitor/1` and assert on the DOWN message:
 
-- Use `mix precommit` alias when you are done with all changes and fix any pending issues. This runs: compilation with warnings-as-errors, dependency check, formatting, Credo (strict), tests, and Dialyzer
-- Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
+  ```elixir
+  ref = Process.monitor(pid)
+  assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+  ```
 
-### Claude Code with Viche MCP Channel
+- Instead of sleeping to synchronize before the next call, **always** use `_ = :sys.get_state/1` to ensure the process has handled prior messages
 
-- To launch Claude Code connected to the Viche network, use: `claude --dangerously-load-development-channels server:viche --dangerously-skip-permissions`
-- This loads the MCP channel defined in `.mcp.json` which auto-registers the agent and connects via WebSocket
-- The Phoenix server must be running (`iex -S mix phx.server`) before launching Claude Code
+---
 
-### Phoenix v1.8 guidelines
+## Developer Workflows
 
-- **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
-- The `MyAppWeb.Layouts` module is aliased in the `my_app_web.ex` file, so you can use it without needing to alias it again
-- Anytime you run into errors with no `current_scope` assign:
-  - You failed to follow the Authenticated Routes guidelines, or you failed to pass `current_scope` to `<Layouts.app>`
-  - **Always** fix the `current_scope` error by moving your routes to the proper `live_session` and ensure you pass `current_scope` as needed
-- Phoenix v1.8 moved the `<.flash_group>` component to the `Layouts` module. You are **forbidden** from calling `<.flash_group>` outside of the `layouts.ex` module
-- Out of the box, `core_components.ex` imports an `<.icon name="hero-x-mark" class="w-5 h-5"/>` component for for hero icons. **Always** use the `<.icon>` component for icons, **never** use `Heroicons` modules or similar
-- **Always** use the imported `<.input>` component for form inputs from `core_components.ex` when available. `<.input>` is imported and using it will save steps and prevent errors
-- If you override the default input classes (`<.input class="myclass px-2 py-1 rounded-lg">)`) class with your own values, no default classes are inherited, so your
-custom classes must fully style the input
+### Launch Claude Code Connected to Viche
 
-### JS and CSS guidelines
+1. **Start Phoenix server:**
+   ```bash
+   iex -S mix phx.server
+   ```
 
-- **Use Tailwind CSS classes and custom CSS rules** to create polished, responsive, and visually stunning interfaces.
-- Tailwindcss v4 **no longer needs a tailwind.config.js** and uses a new import syntax in `app.css`:
+2. **Launch Claude Code with Viche channel:**
+   ```bash
+   claude --dangerously-load-development-channels server:viche --dangerously-skip-permissions
+   ```
 
-      @import "tailwindcss" source(none);
-      @source "../css";
-      @source "../js";
-      @source "../../lib/viche_web";
+3. **Verify registration:**
+   ```bash
+   curl -s "http://localhost:4000/registry/discover?capability=*" | jq
+   ```
 
-- **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
-- **Never** use `@apply` when writing raw css
-- **Always** manually write your own tailwind-based components instead of using daisyUI for a unique, world-class design
-- Out of the box **only the app.js and app.css bundles are supported**
-  - You cannot reference an external vendor'd script `src` or link `href` in the layouts
-  - You must import the vendor deps into app.js and app.css to use them
-  - **Never write inline <script>custom js</script> tags within templates**
+### Plugin Configuration Environment Variables
 
-### UI/UX & design guidelines
+**Shared across all plugins:**
+- `VICHE_REGISTRY_URL` — registry base URL (default: `http://localhost:4000`)
+- `VICHE_CAPABILITIES` — comma-separated capabilities (default: `["coding"]`)
+- `VICHE_AGENT_NAME` — human-readable name
+- `VICHE_DESCRIPTION` — short description
+- `VICHE_REGISTRY_TOKEN` — comma-separated registry tokens
 
-- **Produce world-class UI designs** with a focus on usability, aesthetics, and modern design principles
-- Implement **subtle micro-interactions** (e.g., button hover effects, and smooth transitions)
-- Ensure **clean typography, spacing, and layout balance** for a refined, premium look
-- Focus on **delightful details** like hover effects, loading states, and smooth page transitions
+**OpenClaw-specific:**
+- Configure via `~/.openclaw/openclaw.json`
 
+**OpenCode-specific:**
+- Configure via `.opencode/viche.json`
+- Auto-generates registry token if not provided
+
+---
 
 <!-- usage-rules-start -->
 
