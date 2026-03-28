@@ -24,10 +24,10 @@
   },
   "license": "MIT",
   "author": "LaunchClaw",
-  "homepage": "https://github.com/ihorkatkov/viche/tree/main/channel/opencode-plugin-viche",
+  "homepage": "https://github.com/viche-ai/viche/tree/main/channel/opencode-plugin-viche",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ihorkatkov/viche.git",
+    "url": "https://github.com/viche-ai/viche.git",
     "directory": "channel/opencode-plugin-viche"
   },
   "keywords": [
