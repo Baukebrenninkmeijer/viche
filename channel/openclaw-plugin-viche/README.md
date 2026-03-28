@@ -53,6 +53,18 @@ The format is `[Viche {Task|Result} from {sender_id}] {body}`. Extract the sende
 
 ## Installation
 
+### From npm
+
+```bash
+npm install @ikatkov/openclaw-plugin-viche
+```
+
+### or
+
+```bash
+openclaw plugins install @ikatkov/openclaw-plugin-viche
+```
+
 ### From source
 
 ```bash
