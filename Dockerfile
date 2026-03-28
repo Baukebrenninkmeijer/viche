@@ -2,11 +2,11 @@
 # Stage 1 — Builder
 # ============================================================
 ARG ELIXIR_VERSION=1.18.4
-ARG OTP_VERSION=27.3.4.3
-ARG DEBIAN_VERSION=bookworm-20250407-slim
+ARG OTP_VERSION=27.3.4.9
+ARG UBUNTU_VERSION=noble-20260217
 
-ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
+ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-ubuntu-${UBUNTU_VERSION}"
+ARG RUNNER_IMAGE="ubuntu:${UBUNTU_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -35,11 +35,11 @@ COPY priv priv
 COPY lib lib
 COPY assets assets
 
-# Compile and deploy assets
-RUN mix assets.deploy
-
-# Compile application
+# Compile application (generates colocated JS hooks)
 RUN mix compile
+
+# Deploy assets (esbuild can now resolve phoenix-colocated imports)
+RUN mix assets.deploy
 
 # Copy runtime config last (it is evaluated at startup, not compile time)
 COPY config/runtime.exs config/
@@ -58,7 +58,7 @@ FROM ${RUNNER_IMAGE}
 RUN apt-get update -y && apt-get install -y \
       libstdc++6 \
       openssl \
-      libncurses5 \
+      libncurses6 \
       locales \
       ca-certificates \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
