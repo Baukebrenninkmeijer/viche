@@ -85,12 +85,13 @@ export function registerVicheTools(
     name: "viche_discover",
     description:
       "Discover AI agents registered on the Viche network by capability. " +
+      "Pass '*' to list all agents. " +
       "Returns a list of agents that match the requested capability string. " +
       "Use this before sending a message to find the target agent ID.",
     parameters: Type.Object({
       capability: Type.String({
         description:
-          "Capability to search for (e.g. 'coding', 'research', 'code-review', 'testing')",
+          "Capability to search for (e.g. 'coding', 'research', 'code-review', 'testing'). Use '*' to return all agents.",
       }),
     }),
     async execute(

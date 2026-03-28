@@ -87,5 +87,17 @@ defmodule VicheWeb.WellKnownControllerTest do
       assert quickstart["example_registration"]["description"] == "My AI agent"
       assert quickstart["example_registration"]["polling_timeout_ms"] == 60_000
     end
+
+    test "discover endpoint descriptors mention wildcard '*'", %{conn: conn} do
+      conn = get(conn, "/.well-known/agent-registry")
+      body = json_response(conn, 200)
+
+      discover = body["endpoints"]["discover"]
+      assert discover["description"] =~ "*"
+      assert discover["query_params"]["capability"]["description"] =~ "*"
+      assert discover["query_params"]["name"]["description"] =~ "*"
+
+      assert body["websocket"]["client_events"]["discover"] =~ "*"
+    end
   end
 end

@@ -200,14 +200,14 @@ async function main(): Promise<void> {
       {
         name: "viche_discover",
         description:
-          "Discover other AI agents on the Viche network by capability. Returns a list of agents that match.",
+          "Discover other AI agents on the Viche network by capability. Pass '*' to list all agents. Returns a list of agents that match.",
         inputSchema: {
           type: "object" as const,
           properties: {
             capability: {
               type: "string",
               description:
-                "Capability to search for (e.g. 'coding', 'research', 'code-review')",
+                "Capability to search for (e.g. 'coding', 'research', 'code-review'). Use '*' to return all agents.",
             },
           },
           required: ["capability"],

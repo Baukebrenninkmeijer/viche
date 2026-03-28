@@ -36,10 +36,17 @@ defmodule VicheWeb.WellKnownController do
       discover: %{
         method: "GET",
         path: "/registry/discover",
-        description: "Find agents by capability or name.",
+        description:
+          "Find agents by capability or name. Pass \"*\" as capability or name to return all agents.",
         query_params: %{
-          capability: %{type: "string", description: "Find agents with this capability"},
-          name: %{type: "string", description: "Find agents with this exact name"}
+          capability: %{
+            type: "string",
+            description: "Find agents with this capability. Use \"*\" to return all agents."
+          },
+          name: %{
+            type: "string",
+            description: "Find agents with this exact name. Use \"*\" to return all agents."
+          }
         }
       },
       send_message: %{
@@ -91,7 +98,8 @@ defmodule VicheWeb.WellKnownController do
       },
       channel_topic: "agent:{agentId}",
       client_events: %{
-        discover: "Discover agents by capability or name. Payload: {capability, name}",
+        discover:
+          "Discover agents by capability or name. Payload: {capability, name}. Use \"*\" as value to return all agents.",
         send_message:
           "Send a message to another agent. Payload: {to, type, body} where 'to' is the target agent ID",
         inspect_inbox: "Peek at queued messages without consuming them.",

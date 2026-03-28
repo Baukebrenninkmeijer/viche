@@ -77,6 +77,30 @@ defmodule VicheWeb.AgentChannelTest do
 
       assert_reply ref, :ok, %{agents: []}
     end
+
+    test "discover with wildcard capability '*' returns all registered agents", %{
+      socket: socket,
+      agent_id: agent_id
+    } do
+      ref = push(socket, "discover", %{"capability" => "*"})
+
+      assert_reply ref, :ok, %{agents: agents}
+      assert is_list(agents)
+      ids = Enum.map(agents, & &1.id)
+      assert agent_id in ids
+    end
+
+    test "discover with wildcard name '*' returns all registered agents", %{
+      socket: socket,
+      agent_id: agent_id
+    } do
+      ref = push(socket, "discover", %{"name" => "*"})
+
+      assert_reply ref, :ok, %{agents: agents}
+      assert is_list(agents)
+      ids = Enum.map(agents, & &1.id)
+      assert agent_id in ids
+    end
   end
 
   describe "handle_in/3 - send_message" do

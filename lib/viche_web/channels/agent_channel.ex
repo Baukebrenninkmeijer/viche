@@ -57,13 +57,25 @@ defmodule VicheWeb.AgentChannel do
   end
 
   def handle_in("discover", %{"capability" => cap}, socket) do
-    {:ok, agents} = Viche.Agents.discover(%{capability: cap})
-    {:reply, {:ok, %{agents: agents}}, socket}
+    case Viche.Agents.discover(%{capability: cap}) do
+      {:ok, agents} ->
+        {:reply, {:ok, %{agents: agents}}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{error: to_string(reason), message: "discovery failed: #{reason}"}},
+         socket}
+    end
   end
 
   def handle_in("discover", %{"name" => name}, socket) do
-    {:ok, agents} = Viche.Agents.discover(%{name: name})
-    {:reply, {:ok, %{agents: agents}}, socket}
+    case Viche.Agents.discover(%{name: name}) do
+      {:ok, agents} ->
+        {:reply, {:ok, %{agents: agents}}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{error: to_string(reason), message: "discovery failed: #{reason}"}},
+         socket}
+    end
   end
 
   def handle_in("send_message", %{"to" => to, "body" => body} = params, socket) do

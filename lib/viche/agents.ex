@@ -56,34 +56,52 @@ defmodule Viche.Agents do
     - `{:ok, %Viche.Agent{}}` on success
     - `{:error, :capabilities_required}` when capabilities are missing or empty
   """
-  @spec register_agent(map()) :: {:ok, Agent.t()} | {:error, :capabilities_required}
+  @spec register_agent(map()) ::
+          {:ok, Agent.t()}
+          | {:error, :capabilities_required}
+          | {:error, :invalid_capabilities}
+          | {:error, :invalid_name}
+          | {:error, :invalid_description}
   def register_agent(%{capabilities: caps} = attrs)
       when is_list(caps) and caps != [] do
-    agent_id = generate_unique_id()
     name = Map.get(attrs, :name)
     description = Map.get(attrs, :description)
-    polling_timeout_ms = Map.get(attrs, :polling_timeout_ms)
 
-    child_opts = [id: agent_id, name: name, capabilities: caps, description: description]
+    cond do
+      not Enum.all?(caps, &is_binary/1) ->
+        {:error, :invalid_capabilities}
 
-    child_opts =
-      if polling_timeout_ms,
-        do: Keyword.put(child_opts, :polling_timeout_ms, polling_timeout_ms),
-        else: child_opts
+      not is_nil(name) and not is_binary(name) ->
+        {:error, :invalid_name}
 
-    child_spec = {AgentServer, child_opts}
-    {:ok, _pid} = DynamicSupervisor.start_child(Viche.AgentSupervisor, child_spec)
+      not is_nil(description) and not is_binary(description) ->
+        {:error, :invalid_description}
 
-    via = {:via, Registry, {Viche.AgentRegistry, agent_id}}
-    agent = AgentServer.get_state(via)
+      true ->
+        polling_timeout_ms = Map.get(attrs, :polling_timeout_ms)
+        agent_id = generate_unique_id()
 
-    Logger.info(
-      "Agent #{agent.id} registered (name: #{inspect(agent.name)}, " <>
-        "capabilities: #{inspect(agent.capabilities)}, " <>
-        "polling_timeout: #{agent.polling_timeout_ms}ms)"
-    )
+        child_opts = [id: agent_id, name: name, capabilities: caps, description: description]
 
-    {:ok, agent}
+        child_opts =
+          if polling_timeout_ms,
+            do: Keyword.put(child_opts, :polling_timeout_ms, polling_timeout_ms),
+            else: child_opts
+
+        child_spec = {AgentServer, child_opts}
+        {:ok, _pid} = DynamicSupervisor.start_child(Viche.AgentSupervisor, child_spec)
+
+        via = {:via, Registry, {Viche.AgentRegistry, agent_id}}
+        agent = AgentServer.get_state(via)
+
+        Logger.info(
+          "Agent #{agent.id} registered (name: #{inspect(agent.name)}, " <>
+            "capabilities: #{inspect(agent.capabilities)}, " <>
+            "polling_timeout: #{agent.polling_timeout_ms}ms)"
+        )
+
+        {:ok, agent}
+    end
   end
 
   def register_agent(_attrs), do: {:error, :capabilities_required}
@@ -114,6 +132,8 @@ defmodule Viche.Agents do
   Discovers agents by capability or name.
 
   ## Parameters
+    - `%{capability: "*"}` — return ALL registered agents (wildcard)
+    - `%{name: "*"}` — return ALL registered agents (wildcard)
     - `%{capability: "..."}` — find agents that have the given capability
     - `%{name: "..."}` — find agents with an exact name match
 
@@ -122,6 +142,10 @@ defmodule Viche.Agents do
     - `{:error, :query_required}` — when neither `:capability` nor `:name` is provided
   """
   @spec discover(map()) :: {:ok, [agent_info()]} | {:error, :query_required}
+  def discover(%{capability: "*"}), do: {:ok, list_agents()}
+
+  def discover(%{name: "*"}), do: {:ok, list_agents()}
+
   def discover(%{capability: cap}) when is_binary(cap) and cap != "" do
     {:ok, find_by_capability(cap)}
   end

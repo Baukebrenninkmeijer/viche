@@ -154,6 +154,40 @@ defmodule Viche.AgentsTest do
         refute Map.has_key?(agent, :registered_at)
       end
     end
+
+    test "wildcard capability '*' returns all registered agents", %{id_a: id_a, id_b: id_b} do
+      assert {:ok, agents} = Agents.discover(%{capability: "*"})
+      ids = Enum.map(agents, & &1.id)
+      assert id_a in ids
+      assert id_b in ids
+      assert length(agents) == 2
+    end
+
+    test "wildcard name '*' returns all registered agents", %{id_a: id_a, id_b: id_b} do
+      assert {:ok, agents} = Agents.discover(%{name: "*"})
+      ids = Enum.map(agents, & &1.id)
+      assert id_a in ids
+      assert id_b in ids
+      assert length(agents) == 2
+    end
+
+    test "wildcard returns {:ok, []} when no agents are registered" do
+      clear_all_agents()
+      assert {:ok, []} = Agents.discover(%{capability: "*"})
+    end
+
+    test "wildcard returns agents with expected keys", %{id_a: _id_a} do
+      {:ok, agents} = Agents.discover(%{capability: "*"})
+
+      for agent <- agents do
+        assert Map.has_key?(agent, :id)
+        assert Map.has_key?(agent, :name)
+        assert Map.has_key?(agent, :capabilities)
+        assert Map.has_key?(agent, :description)
+        refute Map.has_key?(agent, :inbox)
+        refute Map.has_key?(agent, :registered_at)
+      end
+    end
   end
 
   describe "send_message/1" do

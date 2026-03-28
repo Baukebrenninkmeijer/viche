@@ -227,5 +227,46 @@ defmodule VicheWeb.RegistryControllerTest do
         refute Map.has_key?(agent, "registered_at")
       end
     end
+
+    test "wildcard capability '*' returns all registered agents", %{
+      conn: conn,
+      id_a: id_a,
+      id_b: id_b
+    } do
+      conn = get(conn, ~p"/registry/discover", %{"capability" => "*"})
+
+      assert %{"agents" => agents} = json_response(conn, 200)
+      ids = Enum.map(agents, & &1["id"])
+      assert id_a in ids
+      assert id_b in ids
+      assert length(agents) == 2
+    end
+
+    test "wildcard name '*' returns all registered agents", %{
+      conn: conn,
+      id_a: id_a,
+      id_b: id_b
+    } do
+      conn = get(conn, ~p"/registry/discover", %{"name" => "*"})
+
+      assert %{"agents" => agents} = json_response(conn, 200)
+      ids = Enum.map(agents, & &1["id"])
+      assert id_a in ids
+      assert id_b in ids
+      assert length(agents) == 2
+    end
+
+    test "wildcard returns 200 with empty list when no agents registered", %{conn: conn} do
+      # Clear all agents first
+      Viche.AgentSupervisor
+      |> DynamicSupervisor.which_children()
+      |> Enum.each(fn {_, pid, _, _} ->
+        DynamicSupervisor.terminate_child(Viche.AgentSupervisor, pid)
+      end)
+
+      conn = get(conn, ~p"/registry/discover", %{"capability" => "*"})
+
+      assert %{"agents" => []} = json_response(conn, 200)
+    end
   end
 end
