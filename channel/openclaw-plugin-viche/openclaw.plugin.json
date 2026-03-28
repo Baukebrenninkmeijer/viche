@@ -22,6 +22,21 @@
       "description": {
         "type": "string",
         "description": "Short description of this agent"
+      },
+      "registries": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Registry tokens to join one or more private registries for scoped discovery and messaging"
+      },
+      "registryToken": {
+        "type": "string",
+        "description": "Legacy: single registry token (converted to registries array). Use registries instead."
+      },
+      "defaultInboundSession": {
+        "type": "string",
+        "enum": ["most-recent", "main"],
+        "default": "most-recent",
+        "description": "How to route unsolicited inbound messages. \"most-recent\" routes to the session that most recently sent a Viche message (default). \"main\" always routes to agent:main:main."
       }
     }
   }
