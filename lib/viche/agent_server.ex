@@ -10,6 +10,7 @@ defmodule Viche.AgentServer do
   use GenServer
 
   alias Viche.Agent
+  alias Viche.Message
 
   @type start_opts :: [
           id: String.t(),
@@ -40,6 +41,11 @@ defmodule Viche.AgentServer do
     GenServer.call(server, :get_state)
   end
 
+  @spec receive_message(GenServer.server(), Message.t()) :: :ok
+  def receive_message(server, %Message{} = message) do
+    GenServer.call(server, {:receive_message, message})
+  end
+
   # ---------------------------------------------------------------------------
   # GenServer callbacks
   # ---------------------------------------------------------------------------
@@ -66,5 +72,11 @@ defmodule Viche.AgentServer do
   @impl GenServer
   def handle_call(:get_state, _from, agent) do
     {:reply, agent, agent}
+  end
+
+  @impl GenServer
+  def handle_call({:receive_message, %Message{} = message}, _from, %Agent{} = agent) do
+    updated = %Agent{agent | inbox: agent.inbox ++ [message]}
+    {:reply, :ok, updated}
   end
 end
