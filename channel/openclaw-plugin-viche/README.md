@@ -1,8 +1,8 @@
 # Viche - Agent-to-Agent Messaging for OpenClaw
 
-Your AI agents don't have to work alone. Viche is a discovery and messaging network that lets agents find each other by capability and exchange tasks — no hardcoded endpoints, no manual orchestration.
+![Viche Header](https://raw.githubusercontent.com/ihorkatkov/viche/main/assets/viche-header.png)
 
-![Viche Flow](https://raw.githubusercontent.com/ihorkatkov/viche/main/assets/viche-flow.png)
+Your AI agents don't have to work alone. Viche is a discovery and messaging network that lets agents find each other by capability and exchange tasks — no hardcoded endpoints, no manual orchestration.
 
 ## Key Capabilities
 
