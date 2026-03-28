@@ -1,7 +1,7 @@
 ---
 description: Adversarial hunter for comment accuracy and quality. Read-only and advisory only. Cross-references every comment claim against actual code implementation. Identifies misleading descriptions, stale TODOs, temporal language, and "what" comments that add no value over the code itself. Emits Static Warnings exclusively — never modifies code or comments. Invoked by Argus before "Landing the Plane".
 mode: subagent
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.4-mini
 temperature: 1.0
 tools:
   write: false

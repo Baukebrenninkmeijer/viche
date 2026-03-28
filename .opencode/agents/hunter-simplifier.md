@@ -1,7 +1,7 @@
 ---
 description: Adversarial hunter for code simplification. Reads the diff, identifies complexity that can be reduced (nesting, redundancy, unclear names, dead code), applies refactors to production code, then runs ALL existing tests to prove equivalence. If tests pass, the simplification is valid. If tests fail, revert immediately. The ONLY hunter that edits production source files. Invoked by Argus before "Landing the Plane".
 mode: subagent
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.4-mini
 temperature: 1.0
 tools:
   write: true

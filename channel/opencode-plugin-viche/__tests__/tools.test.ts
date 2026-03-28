@@ -113,6 +113,179 @@ describe("createVicheTools", () => {
   // ── viche_discover ─────────────────────────────────────────────────────────
 
   describe("viche_discover", () => {
+    // ── multi-registry discovery (no explicit token) ────────────────────────
+
+    it("queries each registry in config.registries when no token is provided", async () => {
+      // First registry returns agent A, second returns agent B
+      const fetchMock = mock()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [{ id: "aaaa0001", capabilities: ["coding"] }] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [{ id: "bbbb0002", capabilities: ["research"] }] }),
+        } as Response);
+      global.fetch = fetchMock;
+
+      const configWithRegistries = makeConfig({ registries: ["token-alpha", "token-beta"] });
+      const tools = createVicheTools(configWithRegistries, state, ensureSessionReady);
+      const result = await tools["viche_discover"]!.execute({ capability: "coding" }, TEST_CONTEXT);
+
+      // Should have called fetch twice — once per registry
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+
+      const calls = (global.fetch as ReturnType<typeof mock>).mock.calls as [string][];
+      expect(calls[0]![0]).toBe(
+        "http://localhost:4000/registry/discover?capability=coding&token=token-alpha"
+      );
+      expect(calls[1]![0]).toBe(
+        "http://localhost:4000/registry/discover?capability=coding&token=token-beta"
+      );
+
+      // Both agents should appear in the result
+      expect(result).toContain("aaaa0001");
+      expect(result).toContain("bbbb0002");
+    });
+
+    it("deduplicates agents by id when the same agent appears in multiple registries", async () => {
+      const sharedAgent = { id: "shared01", capabilities: ["coding"] };
+      const fetchMock = mock()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [sharedAgent] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [sharedAgent, { id: "unique99", capabilities: ["review"] }] }),
+        } as Response);
+      global.fetch = fetchMock;
+
+      const configWithRegistries = makeConfig({ registries: ["tok-1", "tok-2"] });
+      const tools = createVicheTools(configWithRegistries, state, ensureSessionReady);
+      const result = await tools["viche_discover"]!.execute({ capability: "*" }, TEST_CONTEXT);
+
+      // shared01 should appear exactly once
+      const matches = result.match(/shared01/g) ?? [];
+      expect(matches.length).toBe(1);
+      expect(result).toContain("unique99");
+    });
+
+    it("falls back to global (no token) when config.registries is empty and no token provided", async () => {
+      global.fetch = fetchOkJson({ agents: [] });
+
+      const configNoRegistries = makeConfig({ registries: [] });
+      const tools = createVicheTools(configNoRegistries, state, ensureSessionReady);
+      await tools["viche_discover"]!.execute({ capability: "coding" }, TEST_CONTEXT);
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [url] = (global.fetch as ReturnType<typeof mock>).mock.calls[0] as [string];
+      // No token appended → server uses "global" default
+      expect(url).toBe("http://localhost:4000/registry/discover?capability=coding");
+    });
+
+    it("falls back to global (no token) when config.registries is undefined and no token provided", async () => {
+      global.fetch = fetchOkJson({ agents: [] });
+
+      // makeConfig() omits registries
+      const tools = createVicheTools(config, state, ensureSessionReady);
+      await tools["viche_discover"]!.execute({ capability: "coding" }, TEST_CONTEXT);
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [url] = (global.fetch as ReturnType<typeof mock>).mock.calls[0] as [string];
+      expect(url).toBe("http://localhost:4000/registry/discover?capability=coding");
+    });
+
+    it("uses explicit token arg and ignores config.registries when token is provided", async () => {
+      global.fetch = fetchOkJson({ agents: [{ id: "zz0099", capabilities: ["coding"] }] });
+
+      const configWithRegistries = makeConfig({ registries: ["auto-token-1", "auto-token-2"] });
+      const tools = createVicheTools(configWithRegistries, state, ensureSessionReady);
+      const result = await tools["viche_discover"]!.execute(
+        { capability: "coding", token: "explicit-token" },
+        TEST_CONTEXT
+      );
+
+      // Only ONE fetch call — the explicit token, not the config registries
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [url] = (global.fetch as ReturnType<typeof mock>).mock.calls[0] as [string];
+      expect(url).toBe(
+        "http://localhost:4000/registry/discover?capability=coding&token=explicit-token"
+      );
+      expect(result).toContain("zz0099");
+    });
+
+    it("returns aggregated count across registries", async () => {
+      const fetchMock = mock()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [{ id: "a1a1a1a1", capabilities: ["coding"] }] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [{ id: "b2b2b2b2", capabilities: ["coding"] }] }),
+        } as Response);
+      global.fetch = fetchMock;
+
+      const configWithRegistries = makeConfig({ registries: ["reg-x", "reg-y"] });
+      const tools = createVicheTools(configWithRegistries, state, ensureSessionReady);
+      const result = await tools["viche_discover"]!.execute({ capability: "coding" }, TEST_CONTEXT);
+
+      expect(result).toContain("Found 2 agent(s):");
+    });
+
+    it("returns error message when ALL registries fail", async () => {
+      const fetchMock = mock()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          statusText: "Service Unavailable",
+          json: () => Promise.resolve({}),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          statusText: "Bad Gateway",
+          json: () => Promise.resolve({}),
+        } as Response);
+      global.fetch = fetchMock;
+
+      const configWithRegistries = makeConfig({ registries: ["reg-a", "reg-b"] });
+      const tools = createVicheTools(configWithRegistries, state, ensureSessionReady);
+      const result = await tools["viche_discover"]!.execute({ capability: "coding" }, TEST_CONTEXT);
+
+      expect(result).toContain("all configured registries are unreachable");
+    });
+
+    it("handles partial registry failures gracefully — returns agents from successful registries", async () => {
+      const fetchMock = mock()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          statusText: "Service Unavailable",
+          json: () => Promise.resolve({}),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ agents: [{ id: "ok-agent1", capabilities: ["coding"] }] }),
+        } as Response);
+      global.fetch = fetchMock;
+
+      const configWithRegistries = makeConfig({ registries: ["bad-reg", "good-reg"] });
+      const tools = createVicheTools(configWithRegistries, state, ensureSessionReady);
+      const result = await tools["viche_discover"]!.execute({ capability: "coding" }, TEST_CONTEXT);
+
+      // Should still return agents from the successful registry
+      expect(result).toContain("ok-agent1");
+    });
+
     // 1. Capability "coding" → GETs correct URL, returns formatted list
     it("GETs /registry/discover?capability=coding and returns formatted agent list", async () => {
       global.fetch = fetchOkJson({

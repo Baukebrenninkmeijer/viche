@@ -1,7 +1,7 @@
 ---
 description: Adversarial hunter for type design and domain invariant violations. Finds anemic types, exposed mutable internals, construction without validation, and missing schema enforcement at boundaries. Proves each finding by writing a failing *.argus.test.ts test that demonstrates the invalid state can be created. Invoked by Argus before "Landing the Plane".
 mode: subagent
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.3-codex
 temperature: 1.0
 tools:
   write: true

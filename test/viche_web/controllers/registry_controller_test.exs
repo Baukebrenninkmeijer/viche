@@ -408,14 +408,14 @@ defmodule VicheWeb.RegistryControllerTest do
       assert length(agents) == 2
     end
 
-    test "response agents do NOT expose registries field (privacy fix)", %{conn: conn} do
+    test "response agents do not expose registries field", %{conn: conn} do
       conn = get(conn, ~p"/registry/discover", %{"capability" => "*", "token" => "team-x"})
 
       assert %{"agents" => agents} = json_response(conn, 200)
 
       for agent <- agents do
         refute Map.has_key?(agent, "registries"),
-               "discover response must not leak registry tokens — got #{inspect(agent)}"
+               "discover response must not expose registries — got #{inspect(agent)}"
       end
     end
 

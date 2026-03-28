@@ -1,7 +1,7 @@
 ---
 description: Adversarial code review orchestrator. Dispatches hunter agents in parallel to find bugs, then requires each finding to be proved by a failing test before reporting. Routes to hunters before "Landing the Plane" as a quality gate. Returns either "Clear to land" or a list of verified failing tests for Vulkanus to fix.
 mode: all
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.3-codex
 temperature: 1.0
 thinking:
   type: enabled

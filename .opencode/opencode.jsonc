@@ -12,5 +12,6 @@
     "skill": {
       "*": "allow"
     }
-  }
+  },
+  // "plugin": ["opencode-plugin-viche"]
 }

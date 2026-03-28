@@ -1,7 +1,7 @@
 ---
 description: Adversarial hunter for general code review. Reads AGENTS.md to detect convention violations, import pattern violations, logic bugs, naming violations, error handling anti-patterns, and testing practice gaps. Proves AGENTS.md violations and logic bugs with failing *.argus.test.ts tests. Uses Static Warning for untestable style issues. Invoked by Argus before "Landing the Plane".
 mode: subagent
-model: google/gemini-3.1-pro-preview-customtools
+model: anthropic/claude-sonnet-4-6
 temperature: 1.0
 tools:
   write: true

@@ -1,7 +1,7 @@
 ---
 description: Adversarial hunter for security vulnerabilities. Finds auth bypasses, tenant isolation leaks in multi-tenant applications, IDOR vulnerabilities, privilege escalation, missing input validation, and injection risks. Proves each finding with a failing *.argus.test.ts test. Uses Static Warning for issues that cannot be unit-tested. Invoked by Argus before "Landing the Plane".
 mode: subagent
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.4-mini
 temperature: 1.0
 tools:
   write: true

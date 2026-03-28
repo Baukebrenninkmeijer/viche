@@ -19,7 +19,7 @@ defmodule Viche.Agents do
   alias Viche.AgentServer
   alias Viche.Message
 
-  @typedoc "Lightweight agent map returned by list/discover functions (no private registry tokens)."
+  @typedoc "Agent map returned by list/discover functions."
   @type agent_info :: %{
           id: String.t(),
           name: String.t() | nil,
@@ -256,7 +256,7 @@ defmodule Viche.Agents do
   @spec agents_in_registry(String.t()) :: [agent_info()]
   defp agents_in_registry(registry) do
     for {id, meta} <- all_agents(Viche.AgentRegistry),
-        registry in (meta.registries || []) do
+        registry in agent_registries(meta) do
       format_agent_public({id, meta})
     end
   end
@@ -264,7 +264,7 @@ defmodule Viche.Agents do
   @spec find_by_capability_in(String.t(), String.t()) :: [agent_info()]
   defp find_by_capability_in(capability, registry) do
     for {id, meta} <- all_agents(Viche.AgentRegistry),
-        registry in (meta.registries || []),
+        registry in agent_registries(meta),
         capability in meta.capabilities do
       format_agent_public({id, meta})
     end
@@ -273,11 +273,14 @@ defmodule Viche.Agents do
   @spec find_by_name_in(String.t(), String.t()) :: [agent_info()]
   defp find_by_name_in(name, registry) do
     for {id, meta} <- all_agents(Viche.AgentRegistry),
-        registry in (meta.registries || []),
+        registry in agent_registries(meta),
         meta.name == name do
       format_agent_public({id, meta})
     end
   end
+
+  @spec agent_registries(map()) :: [String.t()]
+  defp agent_registries(meta), do: meta.registries || []
 
   @spec format_agent_public({String.t(), map()}) :: agent_info()
   defp format_agent_public({id, meta}) do

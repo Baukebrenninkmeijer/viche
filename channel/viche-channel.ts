@@ -229,7 +229,7 @@ async function main(): Promise<void> {
             token: {
               type: "string",
               description:
-                "Registry token to scope discovery to a private registry. Omit for global discovery.",
+                "Registry token to scope discovery to a private registry. Omit to search your configured registries.",
             },
           },
           required: ["capability"],

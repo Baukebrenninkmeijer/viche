@@ -135,7 +135,64 @@ export function createVicheTools(
       _context: { sessionID: string }
     ): Promise<string> {
       const { capability, token } = args;
-      let url = `${config.registryUrl}/registry/discover?capability=${encodeURIComponent(capability)}`;
+      const baseUrl = `${config.registryUrl}/registry/discover?capability=${encodeURIComponent(capability)}`;
+
+      // When an explicit token is provided, use the existing single-registry path.
+      // When no token is given and the config has registries, query all of them
+      // and aggregate + deduplicate the results.
+      const registriesToQuery =
+        !token && config.registries?.length ? config.registries : null;
+
+      if (registriesToQuery) {
+        // Parallel fetch across all configured registries (best-effort aggregation).
+        // allSettled ensures one failed registry never aborts the others.
+        const settled = await Promise.allSettled(
+          registriesToQuery.map(async (registryToken) => {
+            const url = `${baseUrl}&token=${encodeURIComponent(registryToken)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) {
+              throw new Error(`${resp.status} ${resp.statusText}`);
+            }
+            const data = (await resp.json()) as DiscoverResponse;
+            return data.agents ?? ([] as AgentInfo[]);
+          })
+        );
+
+        // Log per-registry failures for observability; collect successful batches.
+        let successCount = 0;
+        const allAgents: AgentInfo[][] = [];
+        for (let i = 0; i < settled.length; i++) {
+          const result = settled[i]!;
+          if (result.status === "fulfilled") {
+            successCount++;
+            allAgents.push(result.value);
+          } else {
+            console.warn(
+              `[viche_discover] registry "${registriesToQuery[i]}" failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`
+            );
+          }
+        }
+
+        if (successCount === 0) {
+          return "Failed to discover agents: all configured registries are unreachable.";
+        }
+
+        // Flatten and deduplicate by agent ID (first-seen by registry order wins).
+        const seen = new Set<string>();
+        const agents: AgentInfo[] = [];
+        for (const batch of allAgents) {
+          for (const agent of batch) {
+            if (!seen.has(agent.id)) {
+              seen.add(agent.id);
+              agents.push(agent);
+            }
+          }
+        }
+        return formatAgents(agents);
+      }
+
+      // Single-registry path: explicit token, or no registries configured.
+      let url = baseUrl;
       if (token) url += `&token=${encodeURIComponent(token)}`;
 
       let resp: Response;
@@ -153,11 +210,10 @@ export function createVicheTools(
       let data: DiscoverResponse;
       try {
         data = (await resp.json()) as DiscoverResponse;
+        return formatAgents(data.agents ?? []);
       } catch {
         return "Failed to parse discovery response from Viche.";
       }
-
-      return formatAgents(data.agents ?? []);
     },
   };
 

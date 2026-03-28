@@ -1,7 +1,7 @@
 ---
 description: Adversarial hunter for test coverage gaps. Analyzes the diff to find critical untested paths — error handling, edge cases, negative tests, business logic branches, async failure scenarios. Writes *.argus.test.ts files for the missing coverage. INVERTED PATTERN — these tests should PASS (they test correct existing behavior that just wasn't covered). Criticality rated 1-10; only writes tests for criticality ≥7. Invoked by Argus before "Landing the Plane".
 mode: subagent
-model: google/gemini-3.1-pro-preview-customtools
+model: openai/gpt-5.4-mini
 temperature: 1.0
 tools:
   write: true

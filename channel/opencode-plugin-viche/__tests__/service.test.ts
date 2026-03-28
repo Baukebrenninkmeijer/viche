@@ -285,9 +285,9 @@ describe("createVicheService", () => {
     expect(args[0].body.parts[0]?.text).toContain("Please review this PR");
   });
 
-  // ── 7. Inbound result message → promptAsync with noReply: true ───────────────
+  // ── 7. Inbound result message → promptAsync with noReply: false ──────────────
 
-  it("injects inbound result message via client.session.promptAsync with noReply: true", async () => {
+  it("injects inbound result message via client.session.promptAsync with noReply: false", async () => {
     global.fetch = fetchOk("result-agent");
     const service = createVicheService(config, state, client, "/project");
 
@@ -304,7 +304,7 @@ describe("createVicheService", () => {
     expect(client.session.promptAsync).toHaveBeenCalledTimes(1);
     const [callArgs] = (client.session.promptAsync as ReturnType<typeof mock>).mock.calls;
     const args = callArgs as [{ body: { noReply: boolean; parts: Array<{ text: string }> } }];
-    expect(args[0].body.noReply).toBe(true);
+    expect(args[0].body.noReply).toBe(false);
     expect(args[0].body.parts[0]?.text).toContain("[Viche Result from worker-agent]");
   });
 
