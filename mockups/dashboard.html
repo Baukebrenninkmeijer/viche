@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viche — Mission Control</title>
+  <style>
+    :root[data-theme="dark"] {
+      --bg0:    #2D353B;
+      --bg1:    #343F44;
+      --bg2:    #3D484D;
+      --bg3:    #475258;
+      --bg4:    #4F585E;
+      --fg:     #D3C6AA;
+      --fg-dim: #859289;
+      --red:    #E67E80;
+      --orange: #E69875;
+      --yellow: #DBBC7F;
+      --green:  #A7C080;
+      --aqua:   #83C092;
+      --blue:   #7FBBB3;
+      --purple: #D699B6;
+      --border: rgba(255,255,255,0.07);
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+      --card-bg: #343F44;
+      --hover:  rgba(255,255,255,0.04);
+    }
+    :root[data-theme="light"] {
+      --bg0:    #FDF6E3;
+      --bg1:    #F4F0D9;
+      --bg2:    #EFEBD4;
+      --bg3:    #E6E2CC;
+      --bg4:    #DDD8BE;
+      --fg:     #5C6A72;
+      --fg-dim: #829181;
+      --red:    #F85552;
+      --orange: #F57D26;
+      --yellow: #DFA000;
+      --green:  #8DA101;
+      --aqua:   #35A77C;
+      --blue:   #3A94C5;
+      --purple: #DF69BA;
+      --border: rgba(0,0,0,0.09);
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+      --card-bg: #F4F0D9;
+      --hover:  rgba(0,0,0,0.03);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      background: var(--bg0);
+      color: var(--fg);
+      line-height: 1.5;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 216px; min-width: 216px;
+      background: var(--bg1);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 18px 14px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-mark {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--green), var(--aqua));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; color: #1a2420; flex-shrink: 0;
+    }
+    .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--fg); }
+    .logo-sub  { font-size: 10px; color: var(--fg-dim); font-family: "SF Mono","Fira Code",monospace; }
+
+    .sidebar-section { padding: 10px 6px 4px; }
+    .sidebar-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--fg-dim);
+      padding: 0 8px; margin-bottom: 2px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 7px 8px; border-radius: 6px;
+      cursor: pointer; color: var(--fg-dim);
+      font-size: 13px; font-weight: 450;
+      transition: background .1s, color .1s;
+      text-decoration: none; user-select: none;
+    }
+    .nav-item:hover { background: var(--hover); color: var(--fg); }
+    .nav-item.active { background: var(--hover); color: var(--fg); font-weight: 500; }
+    .nav-icon { width: 15px; height: 15px; opacity: .7; flex-shrink: 0; }
+    .nav-item.active .nav-icon { opacity: 1; }
+    .nav-badge {
+      margin-left: auto; font-size: 10px; font-weight: 600;
+      font-family: "SF Mono",monospace;
+      background: var(--bg3); color: var(--fg-dim);
+      padding: 1px 6px; border-radius: 10px;
+    }
+    .nav-badge.live { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+
+    .divider { height: 1px; background: var(--border); margin: 4px 6px; }
+    .sidebar-spacer { flex: 1; }
+    .sidebar-footer { padding: 10px 6px; border-top: 1px solid var(--border); }
+
+    /* ── Live dot ── */
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      display: inline-block; background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+    /* ── Main ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .topbar {
+      height: 50px; flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg0);
+      display: flex; align-items: center; padding: 0 22px; gap: 8px;
+    }
+    .topbar-title { font-size: 13.5px; font-weight: 600; color: var(--fg); }
+    .topbar-crumb { font-size: 12px; color: var(--fg-dim); }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .ws-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-dim); }
+
+    .btn-ghost {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--fg-dim); cursor: pointer; padding: 5px 10px;
+      font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 5px;
+      transition: background .1s, color .1s;
+    }
+    .btn-ghost:hover { background: var(--hover); color: var(--fg); }
+
+    .content {
+      flex: 1; overflow-y: auto; padding: 22px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+
+    /* ── Stat cards ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+    .stat-card {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 18px; cursor: pointer;
+      transition: border-color .15s, background .1s;
+    }
+    .stat-card:hover { border-color: color-mix(in srgb, var(--green) 45%, transparent); background: var(--bg2); }
+    .stat-label {
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .6px; color: var(--fg-dim); margin-bottom: 10px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .stat-value {
+      font-size: 34px; font-weight: 700; letter-spacing: -1.5px;
+      color: var(--fg); line-height: 1; margin-bottom: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-unit { font-size: 15px; font-weight: 400; color: var(--fg-dim); }
+    .stat-meta { font-size: 11.5px; color: var(--fg-dim); }
+    .up   { color: var(--green); }
+    .down { color: var(--red); }
+
+    .status-bar { display: flex; gap: 2px; margin-top: 10px; height: 3px; border-radius: 3px; overflow: hidden; }
+    .sb { height: 100%; }
+
+    /* ── Pills ── */
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+    }
+    .pill::before { content:''; width:5px; height:5px; border-radius:50%; }
+    .pill-idle    { background:color-mix(in srgb,var(--green) 15%,transparent); color:var(--green); }
+    .pill-idle::before    { background:var(--green); }
+    .pill-busy    { background:color-mix(in srgb,var(--yellow) 15%,transparent); color:var(--yellow); }
+    .pill-busy::before    { background:var(--yellow); }
+    .pill-offline { background:color-mix(in srgb,var(--fg-dim) 15%,transparent); color:var(--fg-dim); }
+    .pill-offline::before { background:var(--fg-dim); }
+
+    /* ── Lower grid ── */
+    .lower-grid { display: grid; grid-template-columns: 1fr 370px; gap: 12px; flex:1; min-height:0; }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-header {
+      padding: 13px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .panel-title { font-size: 13px; font-weight: 600; color: var(--fg); }
+    .panel-count {
+      font-size: 10.5px; font-weight: 600; font-family: "SF Mono",monospace;
+      color: var(--fg-dim); background: var(--bg3); padding: 1px 7px; border-radius: 10px;
+    }
+    .panel-actions { margin-left: auto; display: flex; gap: 6px; }
+    .btn-sm {
+      font-size: 11px; font-weight: 500; padding: 4px 9px;
+      border-radius: 5px; border: 1px solid var(--border);
+      background: transparent; color: var(--fg-dim); cursor: pointer;
+      transition: background .1s, color .1s;
+    }
+    .btn-sm:hover { background: var(--hover); color: var(--fg); }
+    .btn-accent {
+      background: color-mix(in srgb, var(--green) 15%, transparent);
+      color: var(--green);
+      border-color: color-mix(in srgb, var(--green) 30%, transparent);
+    }
+    .btn-accent:hover { background: color-mix(in srgb, var(--green) 25%, transparent); color: var(--green); }
+
+    .panel-body { flex:1; overflow-y:auto; }
+
+    /* ── Table header ── */
+    .tbl-head {
+      display: grid; grid-template-columns: 28px 1fr 90px 52px 80px;
+      gap: 10px; padding: 7px 18px;
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+    }
+    .th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--fg-dim); }
+
+    /* ── Agent row ── */
+    .agent-row {
+      display: grid; grid-template-columns: 28px 1fr 90px 52px 80px;
+      align-items: center; gap: 10px; padding: 9px 18px;
+      border-bottom: 1px solid var(--border); cursor: pointer;
+      transition: background .1s;
+    }
+    .agent-row:last-child { border-bottom: none; }
+    .agent-row:hover { background: var(--hover); }
+
+    .avatar {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .agent-name { font-size: 12.5px; font-weight: 500; color: var(--fg); }
+    .agent-caps { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
+    .cap {
+      font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
+      background: var(--bg3); color: var(--fg-dim);
+      font-family: "SF Mono",monospace;
+    }
+    .agent-queue { font-size: 11px; font-family: "SF Mono",monospace; color: var(--fg-dim); text-align: right; }
+    .agent-last  { font-size: 11px; color: var(--fg-dim); white-space: nowrap; }
+
+    /* ── Feed ── */
+    .feed-item {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background .1s;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-item:hover { background: var(--hover); }
+    .feed-meta { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+    .feed-from { font-weight: 600; color: var(--fg); font-size: 11.5px; }
+    .feed-arr  { color: var(--fg-dim); }
+    .feed-to   { font-weight: 500; font-size: 11.5px; }
+    .feed-time { margin-left: auto; font-size: 10px; color: var(--fg-dim); font-family: "SF Mono",monospace; }
+    .feed-body {
+      font-size: 12px; color: var(--fg-dim);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .ftype {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+    }
+    .ft-task   { background:color-mix(in srgb,var(--blue) 15%,transparent); color:var(--blue); }
+    .ft-ack    { background:color-mix(in srgb,var(--green) 15%,transparent); color:var(--green); }
+    .ft-result { background:color-mix(in srgb,var(--purple) 15%,transparent); color:var(--purple); }
+    .ft-reg    { background:color-mix(in srgb,var(--aqua) 15%,transparent); color:var(--aqua); }
+
+    /* ── Status bar ── */
+    .statusbar {
+      height: 24px; border-top: 1px solid var(--border);
+      background: var(--bg1);
+      display: flex; align-items: center; padding: 0 16px; gap: 14px;
+      font-size: 10px; color: var(--fg-dim);
+      font-family: "SF Mono",monospace; flex-shrink: 0;
+    }
+    .statusbar-item { display: flex; align-items: center; gap: 4px; }
+    .sep { opacity: .3; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+    /* ── New-item flash ── */
+    @keyframes flash { from { background: color-mix(in srgb,var(--green) 8%,transparent); } to { background: transparent; } }
+    .feed-new { animation: flash .6s ease-out; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo-mark">V</div>
+    <div>
+      <div class="logo-text">Viche</div>
+      <div class="logo-sub">v0.1.0-alpha</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Overview</div>
+    <a class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3A1.5 1.5 0 0115 10.5v3A1.5 1.5 0 0113.5 15h-3A1.5 1.5 0 019 13.5v-3z"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3"/><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1a6 6 0 110 12A6 6 0 018 2zm0 2a1 1 0 00-1 1v2.586l-1.707 1.707a1 1 0 001.414 1.414l2-2A1 1 0 009 8V5a1 1 0 00-1-1z"/></svg>
+      Network
+    </a>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Agents</div>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 100-6 3 3 0 000 6z"/></svg>
+      All Agents
+      <span class="nav-badge">24</span>
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 16A8 8 0 108 0a8 8 0 000 16zm.93-9.412l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588z"/></svg>
+      Online
+      <span class="nav-badge live">12</span>
+    </a>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Activity</div>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.5-10a.5.5 0 00-1 0v3.5a.5.5 0 00.146.354l2.5 2.5a.5.5 0 00.708-.708L8.5 8.293V5z"/></svg>
+      Sessions
+      <span class="nav-badge live">3</span>
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v.217l7 4.2 7-4.2V4a1 1 0 00-1-1H2zm13 2.383l-4.708 2.825L15 11.105V5.383zm-.034 6.876l-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 002 13h12a1 1 0 00.966-.741zM1 11.105l4.708-2.897L1 5.383v5.722z"/></svg>
+      Inbox Monitor
+    </a>
+  </div>
+
+  <div class="sidebar-spacer"></div>
+
+  <div class="sidebar-footer">
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 01-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 01.872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 012.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 012.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 01.872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 01-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 01-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 110-5.86 2.929 2.929 0 010 5.858z"/></svg>
+      Settings
+    </a>
+    <a class="nav-item" style="font-size:12px">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<main class="main">
+
+  <div class="topbar">
+    <span class="topbar-title">Dashboard</span>
+    <span class="topbar-crumb">/ overview</span>
+    <div class="topbar-right">
+      <div class="ws-label">
+        <span class="dot"></span>
+        <span>Live</span>
+      </div>
+      <button class="btn-ghost" onclick="toggleTheme()">
+        <span id="ti">☀️</span>
+        <span id="tl">Light mode</span>
+      </button>
+      <button class="btn-ghost">⌨ Demo screen</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Stat cards -->
+    <div class="stat-grid">
+
+      <div class="stat-card">
+        <div class="stat-label">Total Agents</div>
+        <div class="stat-value">24</div>
+        <div class="status-bar">
+          <div class="sb" style="width:50%;background:var(--green)"></div>
+          <div class="sb" style="width:17%;background:var(--yellow)"></div>
+          <div class="sb" style="width:33%;background:var(--bg4)"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:9px">
+          <span class="pill pill-idle">12 idle</span>
+          <span class="pill pill-busy">4 busy</span>
+          <span class="pill pill-offline">8 offline</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Active Sessions</div>
+        <div class="stat-value">3</div>
+        <div class="stat-meta"><span class="up">↑ 2</span> from an hour ago</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Tasks Today</div>
+        <div class="stat-value">1,247</div>
+        <div class="stat-meta"><span class="up">↑ 18%</span> vs yesterday</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Avg Latency</div>
+        <div class="stat-value">84<span class="stat-unit">ms</span></div>
+        <div class="stat-meta"><span class="down">↑ 12ms</span> above baseline</div>
+      </div>
+
+    </div>
+
+    <!-- Lower grid -->
+    <div class="lower-grid">
+
+      <!-- Agents panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Connected Agents</div>
+          <div class="panel-count">16 online</div>
+          <div class="panel-actions">
+            <button class="btn-sm">Filter</button>
+            <button class="btn-sm">Sort</button>
+            <button class="btn-sm btn-accent">+ Register</button>
+          </div>
+        </div>
+        <div class="tbl-head">
+          <div></div>
+          <div class="th">Agent</div>
+          <div class="th">Status</div>
+          <div class="th" style="text-align:right">Queue</div>
+          <div class="th">Last seen</div>
+        </div>
+        <div class="panel-body">
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)">A</div>
+            <div><div class="agent-name">aris-prod</div><div class="agent-caps"><span class="cap">code-review</span><span class="cap">reasoning</span></div></div>
+            <span class="pill pill-idle">idle</span>
+            <div class="agent-queue">0</div>
+            <div class="agent-last">just now</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)">C</div>
+            <div><div class="agent-name">claude-code-1</div><div class="agent-caps"><span class="cap">coding</span><span class="cap">testing</span><span class="cap">refactor</span></div></div>
+            <span class="pill pill-busy">busy</span>
+            <div class="agent-queue">2</div>
+            <div class="agent-last">8s ago</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--purple) 18%,transparent);color:var(--purple)">G</div>
+            <div><div class="agent-name">geth-hivemind</div><div class="agent-caps"><span class="cap">orchestration</span><span class="cap">planning</span></div></div>
+            <span class="pill pill-idle">idle</span>
+            <div class="agent-queue">0</div>
+            <div class="agent-last">22s ago</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--yellow) 18%,transparent);color:var(--yellow)">O</div>
+            <div><div class="agent-name">opencode-worker-3</div><div class="agent-caps"><span class="cap">coding</span></div></div>
+            <span class="pill pill-busy">busy</span>
+            <div class="agent-queue">5</div>
+            <div class="agent-last">3s ago</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--aqua) 18%,transparent);color:var(--aqua)">R</div>
+            <div><div class="agent-name">researcher-v2</div><div class="agent-caps"><span class="cap">web-search</span><span class="cap">summarise</span></div></div>
+            <span class="pill pill-idle">idle</span>
+            <div class="agent-queue">1</div>
+            <div class="agent-last">1m ago</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange)">D</div>
+            <div><div class="agent-name">demo-agent-joel</div><div class="agent-caps"><span class="cap">general</span></div></div>
+            <span class="pill pill-idle">idle</span>
+            <div class="agent-queue">0</div>
+            <div class="agent-last">2m ago</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--fg-dim) 18%,transparent);color:var(--fg-dim)">W</div>
+            <div><div class="agent-name">writer-agent</div><div class="agent-caps"><span class="cap">writing</span><span class="cap">editing</span></div></div>
+            <span class="pill pill-offline">offline</span>
+            <div class="agent-queue">0</div>
+            <div class="agent-last">14m ago</div>
+          </div>
+
+          <div class="agent-row">
+            <div class="avatar" style="background:color-mix(in srgb,var(--fg-dim) 18%,transparent);color:var(--fg-dim)">S</div>
+            <div><div class="agent-name">security-scanner</div><div class="agent-caps"><span class="cap">security</span><span class="cap">audit</span></div></div>
+            <span class="pill pill-offline">offline</span>
+            <div class="agent-queue">0</div>
+            <div class="agent-last">1h ago</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Live Activity</div>
+          <span class="dot" style="margin-left:2px"></span>
+          <div class="panel-actions">
+            <button class="btn-sm" id="pause-btn" onclick="togglePause()">Pause</button>
+          </div>
+        </div>
+        <div class="panel-body" id="feed">
+
+          <div class="feed-item">
+            <div class="feed-meta">
+              <span class="ftype ft-task">task</span>
+              <span class="feed-from">geth-hivemind</span>
+              <span class="feed-arr">→</span>
+              <span class="feed-to" style="color:var(--blue)">claude-code-1</span>
+              <span class="feed-time">just now</span>
+            </div>
+            <div class="feed-body">Review PR #47: refactor agent discovery module</div>
+          </div>
+
+          <div class="feed-item">
+            <div class="feed-meta">
+              <span class="ftype ft-ack">ack</span>
+              <span class="feed-from">claude-code-1</span>
+              <span class="feed-arr">→</span>
+              <span class="feed-to" style="color:var(--purple)">geth-hivemind</span>
+              <span class="feed-time">4s ago</span>
+            </div>
+            <div class="feed-body">Task received. Starting review now.</div>
+          </div>
+
+          <div class="feed-item">
+            <div class="feed-meta">
+              <span class="ftype ft-reg">join</span>
+              <span class="feed-from">demo-agent-joel</span>
+              <span class="feed-arr">→</span>
+              <span class="feed-to" style="color:var(--fg-dim)">registry</span>
+              <span class="feed-time">2m ago</span>
+            </div>
+            <div class="feed-body">New agent registered. Capabilities: general</div>
+          </div>
+
+          <div class="feed-item">
+            <div class="feed-meta">
+              <span class="ftype ft-result">result</span>
+              <span class="feed-from">researcher-v2</span>
+              <span class="feed-arr">→</span>
+              <span class="feed-to" style="color:var(--purple)">geth-hivemind</span>
+              <span class="feed-time">3m ago</span>
+            </div>
+            <div class="feed-body">Found 12 sources for: "Erlang GenServer patterns"</div>
+          </div>
+
+          <div class="feed-item">
+            <div class="feed-meta">
+              <span class="ftype ft-task">task</span>
+              <span class="feed-from">aris-prod</span>
+              <span class="feed-arr">→</span>
+              <span class="feed-to" style="color:var(--aqua)">researcher-v2</span>
+              <span class="feed-time">4m ago</span>
+            </div>
+            <div class="feed-body">Search: Erlang GenServer vs Agent patterns</div>
+          </div>
+
+          <div class="feed-item">
+            <div class="feed-meta">
+              <span class="ftype ft-result">result</span>
+              <span class="feed-from">claude-code-1</span>
+              <span class="feed-arr">→</span>
+              <span class="feed-to" style="color:var(--orange)">opencode-worker-3</span>
+              <span class="feed-time">8m ago</span>
+            </div>
+            <div class="feed-body">Tests written: 14 passing, 0 failing. Coverage: 94%</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <div class="statusbar-item"><span class="dot"></span><span>ws://viche.fly.dev/socket</span></div>
+    <span class="sep">|</span>
+    <div class="statusbar-item">registry: public</div>
+    <span class="sep">|</span>
+    <div class="statusbar-item">24 agents · 16 online</div>
+    <span class="sep">|</span>
+    <div class="statusbar-item">1,247 tasks today</div>
+  </div>
+
+</main>
+
+<script>
+  // Theme toggle
+  function toggleTheme() {
+    const h = document.documentElement;
+    const dark = h.getAttribute('data-theme') === 'dark';
+    h.setAttribute('data-theme', dark ? 'light' : 'dark');
+    document.getElementById('ti').textContent = dark ? '🌙' : '☀️';
+    document.getElementById('tl').textContent = dark ? 'Dark mode' : 'Light mode';
+  }
+
+  // Live feed simulation
+  let paused = false;
+  function togglePause() {
+    paused = !paused;
+    document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
+  }
+
+  const events = [
+    { type:'task',   tc:'ft-task',   from:'geth-hivemind',      to:'claude-code-1',     tc2:'var(--blue)',   msg:'Analyse diff for PR #48 — security changes' },
+    { type:'ack',    tc:'ft-ack',    from:'researcher-v2',       to:'aris-prod',          tc2:'var(--green)',  msg:'Acknowledged. Starting search now.' },
+    { type:'result', tc:'ft-result', from:'opencode-worker-3',   to:'geth-hivemind',      tc2:'var(--purple)', msg:'Implementation complete. 3 files changed.' },
+    { type:'task',   tc:'ft-task',   from:'aris-prod',           to:'researcher-v2',      tc2:'var(--aqua)',   msg:'Search for: Phoenix Channels presence tracking' },
+    { type:'join',   tc:'ft-reg',    from:'demo-agent-ihor',     to:'registry',           tc2:'var(--fg-dim)', msg:'New agent registered. Capabilities: general, coding' },
+    { type:'ack',    tc:'ft-ack',    from:'claude-code-1',       to:'geth-hivemind',      tc2:'var(--purple)', msg:'Review done. 2 blocking findings, 1 suggestion.' },
+  ];
+
+  setInterval(() => {
+    if (paused) return;
+    const ev = events[Math.floor(Math.random() * events.length)];
+    const feed = document.getElementById('feed');
+    const el = document.createElement('div');
+    el.className = 'feed-item feed-new';
+    el.innerHTML = `
+      <div class="feed-meta">
+        <span class="ftype ${ev.tc}">${ev.type}</span>
+        <span class="feed-from">${ev.from}</span>
+        <span class="feed-arr">→</span>
+        <span class="feed-to" style="color:${ev.tc2}">${ev.to}</span>
+        <span class="feed-time">just now</span>
+      </div>
+      <div class="feed-body">${ev.msg}</div>`;
+    feed.insertBefore(el, feed.firstChild);
+    const items = feed.querySelectorAll('.feed-item');
+    if (items.length > 14) items[items.length - 1].remove();
+  }, 3500);
+</script>
+</body>
+</html>
