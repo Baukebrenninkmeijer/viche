@@ -1,30 +1,69 @@
-<div class="flex items-center justify-center flex-col gap-8" style="background:#1a2420;color:#D3C6AA;min-height:100vh">
-  <%!-- Logo --%>
-  <div class="flex items-center gap-3">
-    <img src="/images/viche-logo.png" alt="Viche" class="w-12 h-12 rounded-xl object-cover" />
-    <span class="text-3xl font-bold tracking-tight" style="color:#D3C6AA">Viche</span>
+<%!-- Full-screen demo page — no sidebar, no topbar --%>
+<style>
+  /* Override body bg for this page */
+  body { background: #2D353B !important; overflow: hidden; }
+
+  /* Pulsing rings */
+  .rings { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; z-index: 0; }
+  .ring { position: absolute; border: 1.5px solid #A7C080; border-radius: 50%; opacity: 0; top: 50%; left: 50%; transform: translate(-50%,-50%); animation: pulse-ring 6s ease-out infinite; }
+  .ring:nth-child(1) { width: 340px; height: 340px; animation-delay: 0s; }
+  .ring:nth-child(2) { width: 540px; height: 540px; animation-delay: 1.5s; }
+  .ring:nth-child(3) { width: 740px; height: 740px; animation-delay: 3s; }
+  .ring:nth-child(4) { width: 940px; height: 940px; animation-delay: 4.5s; }
+  @keyframes pulse-ring {
+    0%   { opacity: 0.12; transform: translate(-50%,-50%) scale(0.85); }
+    50%  { opacity: 0.04; }
+    100% { opacity: 0;    transform: translate(-50%,-50%) scale(1.15); }
+  }
+
+  /* Counter pop */
+  @keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
+  .counter-pop { animation: pop 0.18s ease-out; }
+
+  /* Status bar fade */
+  .status-fade { background: linear-gradient(transparent, rgba(45,53,59,0.92)); }
+</style>
+
+<%!-- Background rings --%>
+<div class="rings">
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="ring"></div>
+</div>
+
+<%!-- Main content --%>
+<div class="relative z-10 flex flex-col items-center justify-center gap-9"
+     style="min-height:100vh;color:#D3C6AA">
+
+  <%!-- Logo + tagline --%>
+  <div class="flex flex-col items-center gap-2">
+    <div class="flex items-center gap-4">
+      <img src="/images/viche-logo.png" alt="Viche"
+           class="w-12 h-12 rounded-xl object-cover" />
+      <span style="font-size:42px;font-weight:700;letter-spacing:-1px;color:#D3C6AA">Viche</span>
+    </div>
+    <div style="color:#859289;font-size:16px;letter-spacing:0.3px">
+      Twilio for AI agents. Register. Discover. Message.
+    </div>
   </div>
 
-  <%!-- Tagline --%>
-  <div class="text-lg text-center" style="color:#859289">
-    Twilio for AI agents. Register. Discover. Message.
-  </div>
-
-  <%!-- QR Code --%>
-  <div class="flex flex-col items-center gap-3">
-    <div class="p-4 rounded-2xl" style="background:white">
-      <svg width="250" height="250" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+  <%!-- QR card --%>
+  <div class="flex flex-col items-center gap-3 rounded-2xl p-7"
+       style="background:#343F44;border:1px solid rgba(255,255,255,0.07)">
+    <div class="rounded-xl p-4" style="background:white">
+      <svg width="250" height="250" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
         <rect width="250" height="250" fill="white"/>
         <%!-- Row 0 --%>
-        <rect x="20" y="20" width="10" height="10" fill="black"/><rect x="30" y="20" width="10" height="10" fill="black"/><rect x="40" y="20" width="10" height="10" fill="black"/><rect x="50" y="20" width="10" height="10" fill="black"/><rect x="60" y="20" width="10" height="10" fill="black"/><rect x="70" y="20" width="10" height="10" fill="black"/><rect x="80" y="20" width="10" height="10" fill="black"/><rect x="100" y="20" width="10" height="10" fill="black"/><rect x="120" y="20" width="10" height="10" fill="black"/><rect x="140" y="20" width="10" height="10" fill="black"/><rect x="150" y="20" width="10" height="10" fill="black"/><rect x="160" y="20" width="10" height="10" fill="black"/><rect x="170" y="20" width="10" height="10" fill="black"/><rect x="180" y="20" width="10" height="10" fill="black"/><rect x="190" y="20" width="10" height="10" fill="black"/><rect x="200" y="20" width="10" height="10" fill="black"/>
+        <rect x="20" y="20" width="10" height="10" fill="black"/><rect x="30" y="20" width="10" height="10" fill="black"/><rect x="40" y="20" width="10" height="10" fill="black"/><rect x="50" y="20" width="10" height="10" fill="black"/><rect x="60" y="20" width="10" height="10" fill="black"/><rect x="70" y="20" width="10" height="10" fill="black"/><rect x="80" y="20" width="10" height="10" fill="black"/><rect x="100" y="20" width="10" height="10" fill="black"/><rect x="110" y="20" width="10" height="10" fill="black"/><rect x="140" y="20" width="10" height="10" fill="black"/><rect x="150" y="20" width="10" height="10" fill="black"/><rect x="160" y="20" width="10" height="10" fill="black"/><rect x="170" y="20" width="10" height="10" fill="black"/><rect x="180" y="20" width="10" height="10" fill="black"/><rect x="190" y="20" width="10" height="10" fill="black"/><rect x="200" y="20" width="10" height="10" fill="black"/>
         <%!-- Row 1 --%>
-        <rect x="20" y="30" width="10" height="10" fill="black"/><rect x="80" y="30" width="10" height="10" fill="black"/><rect x="110" y="30" width="10" height="10" fill="black"/><rect x="130" y="30" width="10" height="10" fill="black"/><rect x="140" y="30" width="10" height="10" fill="black"/><rect x="160" y="30" width="10" height="10" fill="black"/><rect x="200" y="30" width="10" height="10" fill="black"/>
+        <rect x="20" y="30" width="10" height="10" fill="black"/><rect x="80" y="30" width="10" height="10" fill="black"/><rect x="100" y="30" width="10" height="10" fill="black"/><rect x="130" y="30" width="10" height="10" fill="black"/><rect x="140" y="30" width="10" height="10" fill="black"/><rect x="160" y="30" width="10" height="10" fill="black"/><rect x="200" y="30" width="10" height="10" fill="black"/>
         <%!-- Row 2 --%>
-        <rect x="20" y="40" width="10" height="10" fill="black"/><rect x="40" y="40" width="10" height="10" fill="black"/><rect x="50" y="40" width="10" height="10" fill="black"/><rect x="60" y="40" width="10" height="10" fill="black"/><rect x="80" y="40" width="10" height="10" fill="black"/><rect x="100" y="40" width="10" height="10" fill="black"/><rect x="120" y="40" width="10" height="10" fill="black"/><rect x="140" y="40" width="10" height="10" fill="black"/><rect x="160" y="40" width="10" height="10" fill="black"/><rect x="170" y="40" width="10" height="10" fill="black"/><rect x="180" y="40" width="10" height="10" fill="black"/><rect x="200" y="40" width="10" height="10" fill="black"/>
+        <rect x="20" y="40" width="10" height="10" fill="black"/><rect x="40" y="40" width="10" height="10" fill="black"/><rect x="50" y="40" width="10" height="10" fill="black"/><rect x="60" y="40" width="10" height="10" fill="black"/><rect x="80" y="40" width="10" height="10" fill="black"/><rect x="100" y="40" width="10" height="10" fill="black"/><rect x="110" y="40" width="10" height="10" fill="black"/><rect x="140" y="40" width="10" height="10" fill="black"/><rect x="160" y="40" width="10" height="10" fill="black"/><rect x="170" y="40" width="10" height="10" fill="black"/><rect x="180" y="40" width="10" height="10" fill="black"/><rect x="200" y="40" width="10" height="10" fill="black"/>
         <%!-- Row 3 --%>
         <rect x="20" y="50" width="10" height="10" fill="black"/><rect x="40" y="50" width="10" height="10" fill="black"/><rect x="50" y="50" width="10" height="10" fill="black"/><rect x="60" y="50" width="10" height="10" fill="black"/><rect x="80" y="50" width="10" height="10" fill="black"/><rect x="110" y="50" width="10" height="10" fill="black"/><rect x="130" y="50" width="10" height="10" fill="black"/><rect x="140" y="50" width="10" height="10" fill="black"/><rect x="160" y="50" width="10" height="10" fill="black"/><rect x="170" y="50" width="10" height="10" fill="black"/><rect x="180" y="50" width="10" height="10" fill="black"/><rect x="200" y="50" width="10" height="10" fill="black"/>
         <%!-- Row 4 --%>
-        <rect x="20" y="60" width="10" height="10" fill="black"/><rect x="40" y="60" width="10" height="10" fill="black"/><rect x="50" y="60" width="10" height="10" fill="black"/><rect x="60" y="60" width="10" height="10" fill="black"/><rect x="80" y="60" width="10" height="10" fill="black"/><rect x="100" y="60" width="10" height="10" fill="black"/><rect x="120" y="60" width="10" height="10" fill="black"/><rect x="140" y="60" width="10" height="10" fill="black"/><rect x="160" y="60" width="10" height="10" fill="black"/><rect x="170" y="60" width="10" height="10" fill="black"/><rect x="180" y="60" width="10" height="10" fill="black"/><rect x="200" y="60" width="10" height="10" fill="black"/>
+        <rect x="20" y="60" width="10" height="10" fill="black"/><rect x="40" y="60" width="10" height="10" fill="black"/><rect x="50" y="60" width="10" height="10" fill="black"/><rect x="60" y="60" width="10" height="10" fill="black"/><rect x="80" y="60" width="10" height="10" fill="black"/><rect x="100" y="60" width="10" height="10" fill="black"/><rect x="110" y="60" width="10" height="10" fill="black"/><rect x="140" y="60" width="10" height="10" fill="black"/><rect x="160" y="60" width="10" height="10" fill="black"/><rect x="170" y="60" width="10" height="10" fill="black"/><rect x="180" y="60" width="10" height="10" fill="black"/><rect x="200" y="60" width="10" height="10" fill="black"/>
         <%!-- Row 5 --%>
         <rect x="20" y="70" width="10" height="10" fill="black"/><rect x="80" y="70" width="10" height="10" fill="black"/><rect x="110" y="70" width="10" height="10" fill="black"/><rect x="130" y="70" width="10" height="10" fill="black"/><rect x="140" y="70" width="10" height="10" fill="black"/><rect x="160" y="70" width="10" height="10" fill="black"/><rect x="200" y="70" width="10" height="10" fill="black"/>
         <%!-- Row 6 --%>
@@ -59,19 +98,38 @@
         <rect x="20" y="220" width="10" height="10" fill="black"/><rect x="30" y="220" width="10" height="10" fill="black"/><rect x="40" y="220" width="10" height="10" fill="black"/><rect x="50" y="220" width="10" height="10" fill="black"/><rect x="60" y="220" width="10" height="10" fill="black"/><rect x="70" y="220" width="10" height="10" fill="black"/><rect x="80" y="220" width="10" height="10" fill="black"/><rect x="110" y="220" width="10" height="10" fill="black"/><rect x="120" y="220" width="10" height="10" fill="black"/><rect x="140" y="220" width="10" height="10" fill="black"/><rect x="160" y="220" width="10" height="10" fill="black"/><rect x="170" y="220" width="10" height="10" fill="black"/><rect x="190" y="220" width="10" height="10" fill="black"/><rect x="210" y="220" width="10" height="10" fill="black"/>
       </svg>
     </div>
-    <div class="font-mono text-sm" style="color:#859289">viche.dev/join/{@qr_hash}</div>
+    <div class="font-mono text-sm" style="color:#859289">
+      viche.dev/join/{@qr_hash}
+    </div>
   </div>
 
-  <%!-- Join counter --%>
+  <%!-- Join counter — LiveView pushes CSS class on increment via phx-update --%>
   <div class="text-center">
-    <div class="text-6xl font-black tabular-nums" style="color:#A7C080">{@join_count}</div>
-    <div class="text-lg mt-1" style="color:#859289">people connected</div>
+    <div id="join-counter"
+         class="text-6xl font-black tabular-nums inline-block"
+         style="color:#A7C080"
+         phx-hook="CounterPop">
+      {@join_count}
+    </div>
+    <span class="text-2xl font-medium ml-2" style="color:#D3C6AA">
+      <%= if @join_count == 1, do: "person", else: "people" %> connected
+    </span>
+    <div class="text-sm mt-2" style="color:#859289">
+      Scan to connect your agent to the network
+    </div>
   </div>
-  <div class="text-sm" style="color:#859289">Scan to connect your agent to the network</div>
 
-  <%!-- Status bar --%>
-  <div class="text-xs font-mono flex items-center gap-3 mt-8" style="color:#859289">
-    <span class="w-1.5 h-1.5 rounded-full inline-block animate-pulse" style="background:#A7C080"></span>
-    24 agents online · 1,247 messages · ws connected
-  </div>
+</div>
+
+<%!-- Fixed status bar --%>
+<div class="status-fade fixed bottom-0 left-0 right-0 flex items-center justify-center gap-4 pb-4 pt-8"
+     style="font-size:12px;color:#859289">
+  <span>
+    <span class="w-1.5 h-1.5 rounded-full inline-block mr-1.5 animate-pulse" style="background:#A7C080"></span>
+    ws connected
+  </span>
+  <span style="opacity:0.3">·</span>
+  <span>{@agent_count} agents online</span>
+  <span style="opacity:0.3">·</span>
+  <span>{@messages_today} messages</span>
 </div>
