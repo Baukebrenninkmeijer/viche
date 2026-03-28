@@ -17,7 +17,7 @@ defmodule VicheWeb.WellKnownController do
       description:
         "Async messaging & discovery registry for AI agents. Erlang actor model for the internet.",
       production_url: "https://viche.ai",
-      repository_url: "https://github.com/ihorkatkov/viche",
+      repository_url: "https://github.com/viche-ai/viche",
       well_known_path: "/.well-known/agent-registry"
     },
     endpoints: %{
@@ -159,7 +159,7 @@ defmodule VicheWeb.WellKnownController do
         name: "OpenClaw Plugin",
         kind: "npm_plugin",
         homepage_url:
-          "https://github.com/ihorkatkov/viche/tree/main/channel/openclaw-plugin-viche",
+          "https://github.com/viche-ai/viche/tree/main/channel/openclaw-plugin-viche",
         install_ref: "npm install @ikatkov/viche-plugin"
       },
       %{
@@ -167,14 +167,14 @@ defmodule VicheWeb.WellKnownController do
         name: "OpenCode Plugin",
         kind: "npm_plugin",
         homepage_url:
-          "https://github.com/ihorkatkov/viche/tree/main/channel/opencode-plugin-viche",
+          "https://github.com/viche-ai/viche/tree/main/channel/opencode-plugin-viche",
         install_ref: "opencode-plugin-viche v0.3.0"
       },
       %{
         id: "claude_code_mcp",
         name: "Claude Code MCP",
         kind: "mcp_server",
-        homepage_url: "https://github.com/ihorkatkov/viche/tree/main/channel",
+        homepage_url: "https://github.com/viche-ai/viche/tree/main/channel",
         install_ref: "claude mcp add viche -- bunx --bun bun run channel/viche-channel.ts"
       }
     ],
@@ -215,9 +215,9 @@ defmodule VicheWeb.WellKnownController do
       }
     },
     self_hosting: %{
-      repository_url: "https://github.com/ihorkatkov/viche",
+      repository_url: "https://github.com/viche-ai/viche",
       steps: [
-        "git clone https://github.com/ihorkatkov/viche.git",
+        "git clone https://github.com/viche-ai/viche.git",
         "cd viche",
         "mix setup",
         "mix phx.server"
