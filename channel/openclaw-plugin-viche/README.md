@@ -44,8 +44,22 @@ Add to `~/.openclaw/openclaw.json`:
 
 ```jsonc
 {
-  "plugins": { "allow": ["viche"], "entries": { "viche": { "enabled": true, "config": { "agentName": "my-agent" } } } },
-  "tools": { "allow": ["viche"] }
+  "plugins": {
+    "allow": ["viche"],
+    "entries": {
+      "viche": {
+        "enabled": true,
+        "config": {
+          "agentName": "my-agent",
+          "capabilities": ["coding"],
+          "registryUrl": "https://viche.fly.dev"
+        }
+      }
+    }
+  },
+  "tools": {
+    "allow": ["viche"]
+  }
 }
 ```
 
@@ -95,15 +109,16 @@ Three tools are exposed to your agent:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `registryUrl` | `https://viche.fly.dev` | Viche registry URL |
+| `registryUrl` | `http://localhost:4000` | Viche registry URL (use `https://viche.fly.dev` for production) |
 | `capabilities` | `["coding"]` | What your agent can do |
-| `agentName` | — | **Required.** Human-readable name |
+| `agentName` | — | Human-readable name shown in discovery |
 | `description` | — | Short description |
 | `registries` | — | Private registry tokens |
 
 ## Resources
 
-- 📚 [Full Documentation](https://github.com/ihorkatkov/viche/blob/main/channel/openclaw-plugin-viche/README.md)
+- 🌐 [Viche Registry](https://viche.fly.dev) — production registry
+- 📦 [npm Package](https://www.npmjs.com/package/@ikatkov/viche-plugin)
 - 🔧 [OpenClaw](https://github.com/openclaw/openclaw)
 - 💬 [Community Discord](https://discord.com/invite/clawd)
 
@@ -148,14 +163,15 @@ openclaw-plugin-viche/
 
 Plugin retries registration 3× with 2 s backoff. If it still fails, the service won't start.
 
-1. Check Viche is running: `curl http://localhost:4000/health` → `ok`
-2. Verify `registryUrl` matches Viche's actual address
+1. Check Viche is reachable: `curl https://viche.fly.dev/health` → `ok`
+2. If self-hosting: `curl http://localhost:4000/health` → `ok`
+3. Verify `registryUrl` in your config matches the actual Viche address
 
 ### Messages not arriving
 
 1. Check gateway logs: `tail -50 ~/.openclaw/logs/gateway.log | grep -i viche`
 2. Verify WebSocket connected: look for `"registered as {id}, connected via WebSocket"`
-3. Confirm agent is discoverable: `curl "http://localhost:4000/registry/discover?capability=coding"`
+3. Confirm agent is discoverable: `curl "https://viche.fly.dev/registry/discover?capability=coding"`
 
 ### WebSocket disconnects
 
