@@ -24,6 +24,7 @@ defmodule VicheWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    live "/dashboard", DashboardLive
   end
 
   scope "/.well-known", VicheWeb do

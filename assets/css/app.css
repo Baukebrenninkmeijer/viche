@@ -102,4 +102,89 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+/* ── Everforest Design Tokens ── */
+
+@theme {
+  --color-ef-bg0:    #2D353B;
+  --color-ef-bg1:    #343F44;
+  --color-ef-bg2:    #3D484D;
+  --color-ef-bg3:    #475258;
+  --color-ef-bg4:    #4F585E;
+  --color-ef-fg:     #D3C6AA;
+  --color-ef-dim:    #859289;
+  --color-ef-green:  #A7C080;
+  --color-ef-aqua:   #83C092;
+  --color-ef-blue:   #7FBBB3;
+  --color-ef-yellow: #DBBC7F;
+  --color-ef-purple: #D699B6;
+  --color-ef-orange: #E69875;
+  --color-ef-red:    #E67E80;
+  --color-efl-bg0:   #FDF6E3;
+  --color-efl-bg1:   #F4F0D9;
+  --color-efl-fg:    #5C6A72;
+  --color-efl-dim:   #829181;
+  --color-efl-green: #8DA101;
+  --color-efl-aqua:  #35A77C;
+  --color-efl-blue:  #3A94C5;
+}
+
+:root, [data-theme="dark"] {
+  --bg:     var(--color-ef-bg0);
+  --bg-1:   var(--color-ef-bg1);
+  --bg-2:   var(--color-ef-bg2);
+  --fg:     var(--color-ef-fg);
+  --fg-dim: var(--color-ef-dim);
+  --accent: var(--color-ef-green);
+  --border: rgba(255,255,255,0.07);
+  --hover:  rgba(255,255,255,0.04);
+}
+
+[data-theme="light"] {
+  --bg:     var(--color-efl-bg0);
+  --bg-1:   var(--color-efl-bg1);
+  --bg-2:   var(--color-efl-bg1);
+  --fg:     var(--color-efl-fg);
+  --fg-dim: var(--color-efl-dim);
+  --accent: var(--color-efl-green);
+  --border: rgba(0,0,0,0.09);
+  --hover:  rgba(0,0,0,0.03);
+}
+
+/* ── Dashboard Component Styles ── */
+
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+  color: var(--fg-dim); font-size: 13px;
+  transition: background 0.1s, color 0.1s;
+  text-decoration: none; cursor: pointer;
+}
+.nav-item:hover { background: var(--hover); color: var(--fg); }
+.nav-item.active { background: var(--hover); color: var(--fg); font-weight: 500; }
+
+.status-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 20px;
+}
+.status-pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.status-pill.idle    { background: color-mix(in srgb, var(--color-ef-green) 15%, transparent);  color: var(--color-ef-green); }
+.status-pill.busy    { background: color-mix(in srgb, var(--color-ef-yellow) 15%, transparent); color: var(--color-ef-yellow); }
+.status-pill.offline { background: color-mix(in srgb, var(--color-ef-dim) 15%, transparent);    color: var(--color-ef-dim); }
+
+.cap-tag {
+  font-size: 9.5px; font-family: monospace;
+  padding: 1px 5px; border-radius: 3px;
+  background: var(--bg-2, #3D484D); color: var(--fg-dim);
+}
+
+.feed-type {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+}
+.feed-type.task   { background: color-mix(in srgb, var(--color-ef-blue) 15%, transparent);   color: var(--color-ef-blue); }
+.feed-type.ack    { background: color-mix(in srgb, var(--color-ef-green) 15%, transparent);  color: var(--color-ef-green); }
+.feed-type.result { background: color-mix(in srgb, var(--color-ef-purple) 15%, transparent); color: var(--color-ef-purple); }
+.feed-type.join   { background: color-mix(in srgb, var(--color-ef-aqua) 15%, transparent);   color: var(--color-ef-aqua); }
+
 /* This file is for your main application CSS */
