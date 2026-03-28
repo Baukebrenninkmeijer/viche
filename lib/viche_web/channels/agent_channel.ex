@@ -71,23 +71,62 @@ defmodule VicheWeb.AgentChannel do
     type = Map.get(params, "type", "task")
 
     case Viche.Agents.send_message(%{to: to, from: agent_id, body: body, type: type}) do
-      {:ok, message_id} -> {:reply, {:ok, %{message_id: message_id}}, socket}
-      {:error, reason} -> {:reply, {:error, %{reason: reason}}, socket}
+      {:ok, message_id} ->
+        {:reply, {:ok, %{message_id: message_id}}, socket}
+
+      {:error, reason} ->
+        {:reply,
+         {:error, %{error: to_string(reason), message: "message delivery failed: #{reason}"}},
+         socket}
     end
+  end
+
+  def handle_in("send_message", %{"body" => _}, socket) do
+    {:reply, {:error, %{error: "missing_field", message: "required field 'to' is missing"}},
+     socket}
+  end
+
+  def handle_in("send_message", %{"to" => _}, socket) do
+    {:reply, {:error, %{error: "missing_field", message: "required field 'body' is missing"}},
+     socket}
+  end
+
+  def handle_in("send_message", _params, socket) do
+    {:reply,
+     {:error, %{error: "missing_fields", message: "required fields 'to' and 'body' are missing"}},
+     socket}
+  end
+
+  def handle_in("discover", _params, socket) do
+    {:reply,
+     {:error,
+      %{error: "missing_field", message: "required field 'capability' or 'name' is missing"}},
+     socket}
   end
 
   def handle_in("inspect_inbox", _params, socket) do
     case Viche.Agents.inspect_inbox(socket.assigns.agent_id) do
-      {:ok, messages} -> {:reply, {:ok, %{messages: format_messages(messages)}}, socket}
-      {:error, reason} -> {:reply, {:error, %{reason: reason}}, socket}
+      {:ok, messages} ->
+        {:reply, {:ok, %{messages: format_messages(messages)}}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{error: to_string(reason), message: to_string(reason)}}, socket}
     end
   end
 
   def handle_in("drain_inbox", _params, socket) do
     case Viche.Agents.drain_inbox(socket.assigns.agent_id) do
-      {:ok, messages} -> {:reply, {:ok, %{messages: format_messages(messages)}}, socket}
-      {:error, reason} -> {:reply, {:error, %{reason: reason}}, socket}
+      {:ok, messages} ->
+        {:reply, {:ok, %{messages: format_messages(messages)}}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{error: to_string(reason), message: to_string(reason)}}, socket}
     end
+  end
+
+  def handle_in(event, _params, socket) do
+    Logger.warning("Unknown event received on agent channel: #{inspect(event)}")
+    {:reply, {:error, %{error: "unknown_event", message: "unrecognized event: #{event}"}}, socket}
   end
 
   # ---------------------------------------------------------------------------

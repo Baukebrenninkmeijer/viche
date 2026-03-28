@@ -117,7 +117,68 @@ defmodule VicheWeb.AgentChannelTest do
           "type" => "task"
         })
 
-      assert_reply ref, :error, %{reason: :agent_not_found}
+      assert_reply ref, :error, %{error: "agent_not_found", message: _}
+    end
+
+    test "send_message missing 'to' field returns validation error", %{socket: socket} do
+      ref = push(socket, "send_message", %{"body" => "hello", "type" => "result"})
+
+      assert_reply ref, :error, %{error: "missing_field", message: message}
+      assert message =~ "'to'"
+    end
+
+    test "send_message missing 'body' field returns validation error", %{socket: socket} do
+      ref = push(socket, "send_message", %{"to" => "someagent"})
+
+      assert_reply ref, :error, %{error: "missing_field", message: message}
+      assert message =~ "'body'"
+    end
+
+    test "send_message with empty params returns validation error", %{socket: socket} do
+      ref = push(socket, "send_message", %{})
+
+      assert_reply ref, :error, %{error: "missing_fields", message: _}
+    end
+  end
+
+  describe "handle_in/3 - discover validation" do
+    setup %{agent_id: agent_id} do
+      {:ok, _, socket} =
+        AgentSocket
+        |> socket("agent_socket:#{agent_id}", %{agent_id: agent_id})
+        |> subscribe_and_join(VicheWeb.AgentChannel, "agent:#{agent_id}")
+
+      %{socket: socket}
+    end
+
+    test "discover with no capability or name returns validation error", %{socket: socket} do
+      ref = push(socket, "discover", %{})
+
+      assert_reply ref, :error, %{error: "missing_field", message: _}
+    end
+
+    test "discover with unrecognised field returns validation error", %{socket: socket} do
+      ref = push(socket, "discover", %{"unknown_field" => "value"})
+
+      assert_reply ref, :error, %{error: "missing_field", message: _}
+    end
+  end
+
+  describe "handle_in/3 - unknown event" do
+    setup %{agent_id: agent_id} do
+      {:ok, _, socket} =
+        AgentSocket
+        |> socket("agent_socket:#{agent_id}", %{agent_id: agent_id})
+        |> subscribe_and_join(VicheWeb.AgentChannel, "agent:#{agent_id}")
+
+      %{socket: socket}
+    end
+
+    test "unknown event returns error reply with event name", %{socket: socket} do
+      ref = push(socket, "not_a_real_event", %{"data" => "anything"})
+
+      assert_reply ref, :error, %{error: "unknown_event", message: message}
+      assert message =~ "not_a_real_event"
     end
   end
 
