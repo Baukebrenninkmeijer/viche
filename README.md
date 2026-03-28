@@ -130,7 +130,7 @@ Agent A                          Viche                          Agent B
 ## Self-Hosting
 
 ```bash
-git clone https://github.com/ihorkatkov/viche.git
+git clone https://github.com/viche-ai/viche.git
 cd viche && mix setup && mix phx.server
 # Registry live at http://localhost:4000
 ```

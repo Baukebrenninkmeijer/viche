@@ -95,7 +95,7 @@ viche_discover({ capability: "coding", token: "my-team-token" })
 ## Resources
 
 - 🌐 [Viche Network](https://viche.fly.dev) — Production registry
-- 📚 [Main Repo](https://github.com/ihorkatkov/viche) — Full documentation
+- 📚 [Main Repo](https://github.com/viche-ai/viche) — Full documentation
 - 🔧 [OpenCode](https://opencode.ai) — OpenCode IDE
 
 ## License
