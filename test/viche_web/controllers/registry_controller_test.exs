@@ -79,4 +79,109 @@ defmodule VicheWeb.RegistryControllerTest do
       assert id1 != id2
     end
   end
+
+  describe "GET /registry/discover" do
+    setup do
+      # Terminate all existing agents to ensure test isolation
+      Viche.AgentSupervisor
+      |> DynamicSupervisor.which_children()
+      |> Enum.each(fn {_, pid, _, _} ->
+        DynamicSupervisor.terminate_child(Viche.AgentSupervisor, pid)
+      end)
+
+      :ok
+    end
+
+    setup %{conn: conn} do
+      # Register two agents to use in discovery tests
+      conn_a =
+        post(conn, ~p"/registry/register", %{
+          "name" => "agent-a",
+          "capabilities" => ["testing", "coding"],
+          "description" => "Agent A"
+        })
+
+      conn_b =
+        post(build_conn(), ~p"/registry/register", %{
+          "name" => "agent-b",
+          "capabilities" => ["coding"],
+          "description" => "Agent B"
+        })
+
+      %{"id" => id_a} = json_response(conn_a, 201)
+      %{"id" => id_b} = json_response(conn_b, 201)
+
+      %{id_a: id_a, id_b: id_b}
+    end
+
+    test "returns 400 when no query params provided", %{conn: conn} do
+      conn = get(conn, ~p"/registry/discover")
+
+      assert %{
+               "error" => "query_required",
+               "message" => "Provide ?capability= or ?name= parameter"
+             } = json_response(conn, 400)
+    end
+
+    test "discovers agents by capability - single match", %{conn: conn, id_b: id_b} do
+      conn = get(conn, ~p"/registry/discover", %{"capability" => "testing"})
+
+      assert %{"agents" => agents} = json_response(conn, 200)
+      assert length(agents) == 1
+      [agent] = agents
+      assert agent["name"] == "agent-a"
+      assert "testing" in agent["capabilities"]
+      assert Map.has_key?(agent, "id")
+      assert Map.has_key?(agent, "description")
+      refute Map.has_key?(agent, "inbox")
+      _ = id_b
+    end
+
+    test "discovers agents by capability - multiple matches", %{
+      conn: conn,
+      id_a: id_a,
+      id_b: id_b
+    } do
+      conn = get(conn, ~p"/registry/discover", %{"capability" => "coding"})
+
+      assert %{"agents" => agents} = json_response(conn, 200)
+      ids = Enum.map(agents, & &1["id"])
+      assert id_a in ids
+      assert id_b in ids
+      assert length(agents) == 2
+    end
+
+    test "returns 200 with empty list when capability has no matches", %{conn: conn} do
+      conn = get(conn, ~p"/registry/discover", %{"capability" => "nonexistent"})
+
+      assert %{"agents" => []} = json_response(conn, 200)
+    end
+
+    test "discovers agents by name - exact match", %{conn: conn, id_a: id_a} do
+      conn = get(conn, ~p"/registry/discover", %{"name" => "agent-a"})
+
+      assert %{"agents" => agents} = json_response(conn, 200)
+      assert length(agents) == 1
+      [agent] = agents
+      assert agent["id"] == id_a
+      assert agent["name"] == "agent-a"
+    end
+
+    test "returns 200 with empty list when name has no matches", %{conn: conn} do
+      conn = get(conn, ~p"/registry/discover", %{"name" => "nonexistent-agent"})
+
+      assert %{"agents" => []} = json_response(conn, 200)
+    end
+
+    test "does not expose inbox contents in response", %{conn: conn} do
+      conn = get(conn, ~p"/registry/discover", %{"capability" => "coding"})
+
+      assert %{"agents" => agents} = json_response(conn, 200)
+
+      for agent <- agents do
+        refute Map.has_key?(agent, "inbox")
+        refute Map.has_key?(agent, "registered_at")
+      end
+    end
+  end
 end

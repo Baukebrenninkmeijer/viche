@@ -24,6 +24,7 @@ defmodule VicheWeb.Router do
     pipe_through :api
 
     post "/register", RegistryController, :register
+    get "/discover", RegistryController, :discover
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

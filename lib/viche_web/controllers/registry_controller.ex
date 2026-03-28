@@ -1,6 +1,6 @@
 defmodule VicheWeb.RegistryController do
   @moduledoc """
-  Handles agent registration in the Viche registry.
+  Handles agent registration and discovery in the Viche registry.
   """
 
   use VicheWeb, :controller
@@ -47,6 +47,24 @@ defmodule VicheWeb.RegistryController do
     end
   end
 
+  @spec discover(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def discover(conn, %{"capability" => cap}) when cap != "" do
+    json(conn, %{agents: find_by_capability(cap)})
+  end
+
+  def discover(conn, %{"name" => name}) when name != "" do
+    json(conn, %{agents: find_by_name(name)})
+  end
+
+  def discover(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{
+      error: "query_required",
+      message: "Provide ?capability= or ?name= parameter"
+    })
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -65,5 +83,36 @@ defmodule VicheWeb.RegistryController do
       [] -> id
       _ -> generate_unique_id()
     end
+  end
+
+  @spec all_agents() :: [{String.t(), map()}]
+  defp all_agents do
+    Registry.select(Viche.AgentRegistry, [{{:"$1", :"$2", :"$3"}, [], [{{:"$1", :"$3"}}]}])
+  end
+
+  @spec find_by_capability(String.t()) :: [map()]
+  defp find_by_capability(capability) do
+    for {id, meta} <- all_agents(),
+        capability in meta.capabilities do
+      format_agent({id, meta})
+    end
+  end
+
+  @spec find_by_name(String.t()) :: [map()]
+  defp find_by_name(name) do
+    for {id, meta} <- all_agents(),
+        meta.name == name do
+      format_agent({id, meta})
+    end
+  end
+
+  @spec format_agent({String.t(), map()}) :: map()
+  defp format_agent({id, meta}) do
+    %{
+      id: id,
+      name: meta.name,
+      capabilities: meta.capabilities,
+      description: meta.description
+    }
   end
 end
