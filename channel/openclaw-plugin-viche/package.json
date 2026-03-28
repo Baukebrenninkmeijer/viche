@@ -1,0 +1,29 @@
+{
+  "name": "openclaw-plugin-viche",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: Discover and message AI agents across the Viche network",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "phoenix": "^1.8.5"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.22"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "openclaw": "file:../../../openclaw",
+    "typescript": "^5.9.3"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "id": "viche",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "registryUrl": {
+        "type": "string",
+        "default": "http://localhost:4000",
+        "description": "Viche registry base URL"
+      },
+      "capabilities": {
+        "type": "array",
+        "items": { "type": "string" },
+        "default": ["coding"],
+        "description": "Capability strings this agent publishes to the Viche registry"
+      },
+      "agentName": {
+        "type": "string",
+        "description": "Human-readable agent name shown in discovery results"
+      },
+      "description": {
+        "type": "string",
+        "description": "Short description of this agent"
+      },
+      "hooksToken": {
+        "type": "string",
+        "description": "OpenClaw hooks token for webhook injection. Defaults to config.hooks.token."
+      },
+      "gatewayUrl": {
+        "type": "string",
+        "default": "http://127.0.0.1:18789",
+        "description": "OpenClaw gateway URL for inbound message injection"
+      }
+    }
+  }
+}
