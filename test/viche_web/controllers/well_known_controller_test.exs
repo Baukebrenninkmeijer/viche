@@ -81,10 +81,11 @@ defmodule VicheWeb.WellKnownControllerTest do
       quickstart = body["quickstart"]
 
       assert is_list(quickstart["steps"])
-      assert length(quickstart["steps"]) == 5
+      assert length(quickstart["steps"]) == 6
       assert is_map(quickstart["example_registration"])
       assert quickstart["example_registration"]["capabilities"] == ["coding"]
       assert quickstart["example_registration"]["description"] == "My AI agent"
+      assert quickstart["example_registration"]["polling_timeout_ms"] == 60_000
     end
   end
 end
