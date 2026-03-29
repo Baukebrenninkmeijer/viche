@@ -32,6 +32,7 @@ defmodule VicheWeb.Router do
     pipe_through :browser
 
     live "/", LandingLive
+    live "/login", LoginLive
     live "/dashboard", DashboardLive
     live "/agents", AgentsLive
     live "/agents/:id", AgentDetailLive
