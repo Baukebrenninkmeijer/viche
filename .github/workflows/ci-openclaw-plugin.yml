@@ -1,0 +1,36 @@
+name: "CI: OpenClaw Plugin"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "channel/openclaw-plugin-viche/**"
+  pull_request:
+    paths:
+      - "channel/openclaw-plugin-viche/**"
+
+defaults:
+  run:
+    working-directory: channel/openclaw-plugin-viche
+
+jobs:
+  ci:
+    name: Build & Typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
