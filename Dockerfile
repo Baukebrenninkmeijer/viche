@@ -88,6 +88,6 @@ USER nobody
 
 CMD ["/app/bin/server"]
 
-# Fly.io IPv6 networking
-ENV ECTO_IPV6="true"
-ENV ERL_AFLAGS="-proto_dist inet6_tcp"
+# IPv6 networking (set ECTO_IPV6=true and ERL_AFLAGS="-proto_dist inet6_tcp" if needed)
+ENV ECTO_IPV6="false"
+ENV ERL_AFLAGS=""
