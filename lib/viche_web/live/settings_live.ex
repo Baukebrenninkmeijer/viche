@@ -1,6 +1,8 @@
 defmodule VicheWeb.SettingsLive do
   use VicheWeb, :live_view
 
+  alias VicheWeb.Live.RegistryScope
+
   defp default_settings, do: Viche.SettingsStore.defaults()
 
   @impl true
@@ -32,7 +34,9 @@ defmodule VicheWeb.SettingsLive do
   @impl true
   def handle_params(params, _uri, socket) do
     registry =
-      params |> Map.get("registry", "global") |> validate_registry(socket.assigns.registries)
+      params
+      |> Map.get("registry", "global")
+      |> RegistryScope.normalize(socket.assigns.registries)
 
     {:noreply, assign(socket, :selected_registry, registry)}
   end
@@ -91,12 +95,6 @@ defmodule VicheWeb.SettingsLive do
 
   def handle_event("select_registry", %{"registry" => registry}, socket) do
     {:noreply, push_patch(socket, to: ~p"/settings?registry=#{registry}")}
-  end
-
-  # -- Helpers --
-
-  defp validate_registry(registry, registries) do
-    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
   end
 
   @impl true

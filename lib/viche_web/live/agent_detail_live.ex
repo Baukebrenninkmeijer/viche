@@ -1,6 +1,8 @@
 defmodule VicheWeb.AgentDetailLive do
   use VicheWeb, :live_view
 
+  alias VicheWeb.Live.RegistryScope
+
   @impl true
   def mount(_params, _session, socket) do
     socket =
@@ -32,7 +34,7 @@ defmodule VicheWeb.AgentDetailLive do
     registry =
       params
       |> Map.get("registry", "global")
-      |> validate_registry(socket.assigns.registries)
+      |> RegistryScope.normalize(socket.assigns.registries)
 
     socket =
       socket
@@ -103,10 +105,6 @@ defmodule VicheWeb.AgentDetailLive do
   end
 
   # -- Helpers --
-
-  defp validate_registry(registry, registries) do
-    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
-  end
 
   defp load_sidebar_counts(socket) do
     all = Viche.Agents.list_agents_with_status(:all)

@@ -1,5 +1,5 @@
 {
-  "registryUrl": "https://viche.ai",
+  "registryUrl": "http://localhost:4000",
   "capabilities": [
     "coding"
   ],

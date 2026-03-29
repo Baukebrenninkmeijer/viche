@@ -27,7 +27,7 @@ defmodule VicheWeb.AgentsLive do
   @impl true
   def handle_params(params, _uri, socket) do
     registry = Map.get(params, "registry", "global")
-    registry = validate_registry(registry, socket.assigns.registries)
+    registry = RegistryScope.normalize(registry, socket.assigns.registries)
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -44,7 +44,7 @@ defmodule VicheWeb.AgentsLive do
 
   @impl true
   def handle_event("filter", %{"status" => s}, socket) do
-    filter = String.to_atom(s)
+    filter = to_filter_atom(s)
 
     socket =
       socket
@@ -93,20 +93,21 @@ defmodule VicheWeb.AgentsLive do
   defp load_agents(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)
     display = Viche.Agents.list_agents_with_status(filter)
-    all_global = Viche.Agents.list_agents_with_status(:all)
+    all_agents = Viche.Agents.list_agents_with_status(:all)
     filtered = apply_filters(display, socket.assigns.filter, socket.assigns.query)
-    online = Enum.count(all_global, &(&1.status == :online))
+    online = Enum.count(all_agents, &(&1.status == :online))
 
     socket
     |> assign(:all_agents, display)
     |> assign(:agents, filtered)
-    |> assign(:agent_count, length(all_global))
+    |> assign(:agent_count, length(all_agents))
     |> assign(:online_count, online)
   end
 
-  defp validate_registry(registry, registries) do
-    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
-  end
+  defp to_filter_atom("all"), do: :all
+  defp to_filter_atom("online"), do: :online
+  defp to_filter_atom("offline"), do: :offline
+  defp to_filter_atom(_), do: :all
 
   defp apply_filters(agents, filter, query) do
     agents |> filter_by_status(filter) |> filter_by_query(query)

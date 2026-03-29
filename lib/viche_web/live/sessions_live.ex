@@ -27,7 +27,7 @@ defmodule VicheWeb.SessionsLive do
   @impl true
   def handle_params(params, _uri, socket) do
     registry = Map.get(params, "registry", "global")
-    registry = validate_registry(registry, socket.assigns.registries)
+    registry = RegistryScope.normalize(registry, socket.assigns.registries)
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -97,10 +97,6 @@ defmodule VicheWeb.SessionsLive do
   def handle_info(%Phoenix.Socket.Broadcast{}, socket), do: {:noreply, socket}
 
   # -- Private --
-
-  defp validate_registry(registry, registries) do
-    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
-  end
 
   defp load_inboxes(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)

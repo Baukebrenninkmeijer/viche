@@ -20,6 +20,18 @@ defmodule VicheWeb.Live.RegistryScope do
   def to_filter(registry), do: registry
 
   @doc """
+  Validates that a registry string from URL params is in the allowed set.
+
+  Returns `registry` unchanged when it is `"global"`, `"all"`, or one of the
+  caller-supplied `registries` list.  Falls back to `"global"` otherwise,
+  preventing unknown registry names from propagating into LiveView state.
+  """
+  @spec normalize(String.t(), [String.t()]) :: String.t()
+  def normalize(registry, registries) do
+    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
+  end
+
+  @doc """
   Switches PubSub subscriptions from `old_registry` to `new_registry`.
 
   No-op when both values are identical.

@@ -32,7 +32,7 @@ defmodule VicheWeb.DashboardLive do
   @impl true
   def handle_params(params, _uri, socket) do
     registry = Map.get(params, "registry", "global")
-    registry = validate_registry(registry, socket.assigns.registries)
+    registry = RegistryScope.normalize(registry, socket.assigns.registries)
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -158,19 +158,15 @@ defmodule VicheWeb.DashboardLive do
 
   # -- Helpers --
 
-  defp validate_registry(registry, registries) do
-    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
-  end
-
   defp load_and_assign_agents(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)
     agents = Viche.Agents.list_agents_with_status(filter)
-    all_global = Viche.Agents.list_agents_with_status(:all)
-    online = Enum.count(all_global, &(&1.status == :online))
+    all_agents = Viche.Agents.list_agents_with_status(:all)
+    online = Enum.count(all_agents, &(&1.status == :online))
 
     socket
     |> assign(:agents, agents)
-    |> assign(:agent_count, length(all_global))
+    |> assign(:agent_count, length(all_agents))
     |> assign(:online_count, online)
   end
 
