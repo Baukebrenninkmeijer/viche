@@ -9,10 +9,45 @@ defmodule Viche.Auth do
 
   import Ecto.Query
 
+  alias Viche.Accounts
   alias Viche.Accounts.AuthToken
+  alias Viche.Auth.Email
+  alias Viche.Mailer
   alias Viche.Repo
 
   @magic_link_ttl_minutes 15
+
+  @doc """
+  Sends a magic link email for the given email address.
+
+  If no user exists with this email, one is created automatically.
+  Returns `{:ok, user}` on success.
+  """
+  @spec send_magic_link(String.t()) :: {:ok, Accounts.User.t()}
+  def send_magic_link(email) do
+    email = String.downcase(email)
+
+    user =
+      case Accounts.get_user_by_email(email) do
+        nil ->
+          {:ok, user} = Accounts.create_user(%{email: email})
+          user
+
+        user ->
+          user
+      end
+
+    {:ok, raw_token, _auth_token} = create_magic_link_token(user.id)
+
+    base = Application.get_env(:viche, :app_url, "http://localhost:4000")
+    url = "#{base}/auth/verify?token=#{raw_token}"
+
+    Email.magic_link(email, url)
+    |> Mailer.deliver()
+
+    {:ok, user}
+  end
+
   @api_token_ttl_days 365
   @token_byte_size 32
 

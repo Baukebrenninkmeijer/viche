@@ -1,0 +1,60 @@
+defmodule VicheWeb.AuthController do
+  use VicheWeb, :controller
+
+  alias Viche.Accounts
+  alias Viche.Auth
+
+  @doc """
+  POST /auth/login — accepts `%{"email" => email}`, sends a magic link,
+  and returns 200 regardless of whether the email exists (to prevent enumeration).
+  """
+  def login(conn, %{"email" => email}) do
+    Auth.send_magic_link(email)
+
+    conn
+    |> put_status(:ok)
+    |> json(%{message: "If that email is registered, a login link has been sent."})
+  end
+
+  def login(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "email is required"})
+  end
+
+  @doc """
+  GET /auth/verify?token=<raw_token> — verifies the magic link token,
+  sets the user_id in the session, and redirects to the dashboard.
+  """
+  def verify(conn, %{"token" => raw_token}) do
+    case Auth.verify_magic_link_token(raw_token) do
+      {:ok, auth_token} ->
+        user = Accounts.get_user_by_token_record(auth_token)
+
+        conn
+        |> put_session(:user_id, user.id)
+        |> configure_session(renew: true)
+        |> redirect(to: ~p"/dashboard")
+
+      {:error, :invalid_token} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Invalid or expired link"})
+    end
+  end
+
+  def verify(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "token is required"})
+  end
+
+  @doc """
+  DELETE /auth/logout — clears the session and redirects to /.
+  """
+  def logout(conn, _params) do
+    conn
+    |> configure_session(drop: true)
+    |> redirect(to: ~p"/")
+  end
+end
