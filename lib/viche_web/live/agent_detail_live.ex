@@ -9,13 +9,16 @@ defmodule VicheWeb.AgentDetailLive do
       |> assign(:response, nil)
       |> assign(:dispatch_history, [])
       |> assign(:agent, nil)
+      |> assign(:selected_registry, "global")
+      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
+      |> assign(:registries, Viche.Agents.list_registries())
       |> load_sidebar_counts()
 
     {:ok, socket}
   end
 
   @impl true
-  def handle_params(%{"id" => id}, _uri, socket) do
+  def handle_params(%{"id" => id} = params, _uri, socket) do
     agent =
       case Viche.Agents.get_agent_with_status(id) do
         {:ok, a} -> a
@@ -26,7 +29,17 @@ defmodule VicheWeb.AgentDetailLive do
       Phoenix.PubSub.subscribe(Viche.PubSub, "agent:#{id}")
     end
 
-    {:noreply, assign(socket, :agent, agent)}
+    registry =
+      params
+      |> Map.get("registry", "global")
+      |> validate_registry(socket.assigns.registries)
+
+    socket =
+      socket
+      |> assign(:agent, agent)
+      |> assign(:selected_registry, registry)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -64,6 +77,16 @@ defmodule VicheWeb.AgentDetailLive do
     {:noreply, assign(socket, task_input: "", response: nil)}
   end
 
+  def handle_event("select_registry", %{"registry" => registry}, socket) do
+    path =
+      case socket.assigns.agent do
+        nil -> ~p"/agents?registry=#{registry}"
+        agent -> ~p"/agents/#{agent.id}?registry=#{registry}"
+      end
+
+    {:noreply, push_patch(socket, to: path)}
+  end
+
   @impl true
   def handle_info(
         %Phoenix.Socket.Broadcast{event: "new_message", payload: p},
@@ -81,8 +104,12 @@ defmodule VicheWeb.AgentDetailLive do
 
   # -- Helpers --
 
+  defp validate_registry(registry, registries) do
+    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
+  end
+
   defp load_sidebar_counts(socket) do
-    all = Viche.Agents.list_agents_with_status()
+    all = Viche.Agents.list_agents_with_status(:all)
     online = Enum.count(all, &(&1.status == :online))
 
     socket

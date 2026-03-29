@@ -6,7 +6,7 @@ defmodule VicheWeb.SettingsLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket), do: Phoenix.PubSub.subscribe(Viche.PubSub, "metrics:messages")
-    agents = Viche.Agents.list_agents_with_status()
+    agents = Viche.Agents.list_agents_with_status(:all)
     online = Enum.count(agents, &(&1.status == :online))
 
     socket =
@@ -22,8 +22,19 @@ defmodule VicheWeb.SettingsLive do
       |> assign(:online_count, online)
       |> assign(:session_count, 3)
       |> assign(:messages_today, Viche.MessageCounter.get())
+      |> assign(:selected_registry, "global")
+      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
+      |> assign(:registries, Viche.Agents.list_registries())
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    registry =
+      params |> Map.get("registry", "global") |> validate_registry(socket.assigns.registries)
+
+    {:noreply, assign(socket, :selected_registry, registry)}
   end
 
   @impl true
@@ -76,6 +87,16 @@ defmodule VicheWeb.SettingsLive do
 
   def handle_event("select_theme", %{"theme" => t}, socket) do
     {:noreply, assign(socket, theme: String.to_existing_atom(t), dirty: true)}
+  end
+
+  def handle_event("select_registry", %{"registry" => registry}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/settings?registry=#{registry}")}
+  end
+
+  # -- Helpers --
+
+  defp validate_registry(registry, registries) do
+    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
   end
 
   @impl true

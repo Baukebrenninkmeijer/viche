@@ -1,12 +1,19 @@
 defmodule VicheWeb.DashboardLive do
   use VicheWeb, :live_view
 
+  alias VicheWeb.Live.RegistryScope
+
   @impl true
   def mount(_params, _session, socket) do
-    socket = socket |> load_and_assign_agents()
+    socket =
+      socket
+      |> assign(:selected_registry, "global")
+      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
+      |> assign(:registries, Viche.Agents.list_registries())
+      |> load_and_assign_agents()
 
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(Viche.PubSub, "registry:global")
+      RegistryScope.subscribe("global")
       Phoenix.PubSub.subscribe(Viche.PubSub, "dashboard:feed")
       subscribe_to_all_agents(socket.assigns.agents)
       Process.send_after(self(), :tick, 10_000)
@@ -23,6 +30,24 @@ defmodule VicheWeb.DashboardLive do
   end
 
   @impl true
+  def handle_params(params, _uri, socket) do
+    registry = Map.get(params, "registry", "global")
+    registry = validate_registry(registry, socket.assigns.registries)
+    old_registry = socket.assigns.selected_registry
+
+    if connected?(socket) do
+      RegistryScope.switch(old_registry, registry)
+    end
+
+    socket =
+      socket
+      |> assign(:selected_registry, registry)
+      |> load_and_assign_agents()
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info(:tick, socket) do
     Process.send_after(self(), :tick, 10_000)
 
@@ -36,7 +61,7 @@ defmodule VicheWeb.DashboardLive do
 
   def handle_info(
         %Phoenix.Socket.Broadcast{
-          topic: "registry:global",
+          topic: "registry:" <> _,
           event: "agent_joined",
           payload: payload
         },
@@ -54,6 +79,7 @@ defmodule VicheWeb.DashboardLive do
 
     socket =
       socket
+      |> assign(:registries, Viche.Agents.list_registries())
       |> load_and_assign_agents()
       |> update(:feed, fn feed -> [event | Enum.take(feed, 49)] end)
 
@@ -62,7 +88,7 @@ defmodule VicheWeb.DashboardLive do
 
   def handle_info(
         %Phoenix.Socket.Broadcast{
-          topic: "registry:global",
+          topic: "registry:" <> _,
           event: "agent_left",
           payload: payload
         },
@@ -78,6 +104,7 @@ defmodule VicheWeb.DashboardLive do
 
     socket =
       socket
+      |> assign(:registries, Viche.Agents.list_registries())
       |> load_and_assign_agents()
       |> update(:feed, fn feed -> [event | Enum.take(feed, 49)] end)
 
@@ -125,15 +152,25 @@ defmodule VicheWeb.DashboardLive do
     {:noreply, push_navigate(socket, to: path)}
   end
 
+  def handle_event("select_registry", %{"registry" => registry}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/dashboard?registry=#{registry}")}
+  end
+
   # -- Helpers --
 
+  defp validate_registry(registry, registries) do
+    if registry in (["global", "all"] ++ registries), do: registry, else: "global"
+  end
+
   defp load_and_assign_agents(socket) do
-    agents = Viche.Agents.list_agents_with_status()
-    online = Enum.count(agents, &(&1.status == :online))
+    filter = RegistryScope.to_filter(socket.assigns.selected_registry)
+    agents = Viche.Agents.list_agents_with_status(filter)
+    all_global = Viche.Agents.list_agents_with_status(:all)
+    online = Enum.count(all_global, &(&1.status == :online))
 
     socket
     |> assign(:agents, agents)
-    |> assign(:agent_count, length(agents))
+    |> assign(:agent_count, length(all_global))
     |> assign(:online_count, online)
   end
 
