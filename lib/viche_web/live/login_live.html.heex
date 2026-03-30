@@ -19,7 +19,7 @@
   .login-nav-link{color:var(--fg-dim);text-decoration:none;transition:color 0.15s}
   .login-nav-link:hover{color:var(--fg)}
 
-  .login-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;background:var(--bg);color:var(--fg)}
+  .login-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;color:var(--fg)}
 
   .login-card{width:100%;max-width:400px;background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:36px 36px 28px;box-shadow:0 4px 24px rgba(0,0,0,0.4);opacity:0;transform:translateY(28px);animation:login-card-in 0.55s cubic-bezier(0.22,1,0.36,1) 0.1s forwards}
   @keyframes login-card-in{to{opacity:1;transform:translateY(0)}}
@@ -86,7 +86,7 @@
     <div class="login-logo-text">Viche</div>
   </a>
   <div class="login-nav-right">
-    <a href="/join" class="login-nav-link">Create account</a>
+    <a href="/signup" class="login-nav-link">Create account</a>
   </div>
 </nav>
 
@@ -130,7 +130,7 @@
       </.form>
 
       <div class="login-card-footer">
-        Don't have an account? <a href="/join">Sign up free</a>
+        Don't have an account? <a href="/signup">Sign up free</a>
       </div>
     <% end %>
 
@@ -148,6 +148,8 @@
 
 <div class="login-status-bar">
   <span><span class="login-status-dot"></span>network live</span>
-  <span class="login-status-sep">·</span>
-  <span>viche agent mesh</span>
+  <span class="login-status-sep">&middot;</span>
+  <span><span class="login-status-num">{@agents_online}</span> agents online</span>
+  <span class="login-status-sep">&middot;</span>
+  <span><span class="login-status-num">{@messages_today}</span> messages sent</span>
 </div>

@@ -25,8 +25,7 @@ defmodule VicheWeb.VerifyLive do
     if connected?(socket) do
       case Auth.check_magic_link_token(token) do
         :ok ->
-          Process.send_after(self(), {:activate_step, 1}, 600)
-          {:ok, socket, layout: false}
+          {:ok, assign(socket, status: :success), layout: false}
 
         :error ->
           {:ok, assign(socket, status: :error), layout: false}
@@ -49,42 +48,8 @@ defmodule VicheWeb.VerifyLive do
   end
 
   @impl true
-  def handle_info({:activate_step, step}, socket) when step in 1..4 do
-    status_messages = [
-      "Authenticating magic link…",
-      "Presenting credentials…",
-      "Spinning up your workspace…",
-      "Briefing the agent network…"
-    ]
-
-    Process.send_after(self(), {:complete_step, step}, 800)
-
-    {:noreply,
-     assign(socket,
-       current_step: step,
-       status_text: Enum.at(status_messages, step - 1)
-     )}
-  end
-
-  def handle_info({:complete_step, step}, socket) when step in 1..4 do
-    socket = update(socket, :completed_steps, &MapSet.put(&1, step))
-
-    if step < 4 do
-      Process.send_after(self(), {:activate_step, step + 1}, 400)
-      {:noreply, socket}
-    else
-      Process.send_after(self(), :show_success, 500)
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info(:show_success, socket) do
-    Process.send_after(self(), :redirect_to_confirm, 2000)
-    {:noreply, assign(socket, status: :success)}
-  end
-
-  def handle_info(:redirect_to_confirm, socket) do
-    {:noreply, redirect(socket, to: ~p"/auth/confirm?token=#{socket.assigns.token}")}
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
   end
 
   # Helpers used by the template

@@ -24,10 +24,10 @@ defmodule VicheWeb.SignupLiveTest do
     test "advances to step 2 after valid name and email", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/signup")
 
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada Lovelace"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "ada@example.com"})
-
-      html = view |> element("button", "Continue") |> render_click()
+      html =
+        view
+        |> form("form", %{"user" => %{"name" => "Ada Lovelace", "email" => "ada@example.com"}})
+        |> render_submit()
 
       assert html =~ "Username"
       assert html =~ "@"
@@ -36,30 +36,31 @@ defmodule VicheWeb.SignupLiveTest do
     test "shows error when name is empty on step 1", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/signup")
 
-      view |> element("input[name=email]") |> render_change(%{"email" => "ada@example.com"})
+      html =
+        view
+        |> form("form", %{"user" => %{"name" => "", "email" => "ada@example.com"}})
+        |> render_submit()
 
-      html = view |> element("button", "Continue") |> render_click()
-
-      assert html =~ "Please enter your name"
+      assert html =~ "can&#39;t be blank"
     end
 
     test "shows error when email is invalid on step 1", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/signup")
 
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "not-an-email"})
+      html =
+        view
+        |> form("form", %{"user" => %{"name" => "Ada", "email" => "not-an-email"}})
+        |> render_submit()
 
-      html = view |> element("button", "Continue") |> render_click()
-
-      assert html =~ "Please enter a valid email address"
+      assert html =~ "must have the @ sign and no spaces"
     end
 
     test "goes back from step 2 to step 1", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/signup")
 
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "ada@example.com"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"name" => "Ada", "email" => "ada@example.com"}})
+      |> render_submit()
 
       html = view |> element("button", "Back") |> render_click()
 
@@ -70,12 +71,14 @@ defmodule VicheWeb.SignupLiveTest do
     test "advances to step 3 after valid username", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/signup")
 
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "ada@example.com"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"name" => "Ada", "email" => "ada@example.com"}})
+      |> render_submit()
 
-      view |> element("input[name=username]") |> render_change(%{"username" => "ada_lovelace"})
-      html = view |> element("button", "Continue") |> render_click()
+      html =
+        view
+        |> form("form", %{"user" => %{"username" => "ada_lovelace"}})
+        |> render_submit()
 
       assert html =~ "How do you plan to use Viche?"
     end
@@ -83,13 +86,16 @@ defmodule VicheWeb.SignupLiveTest do
     test "shows error for invalid username", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/signup")
 
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "ada@example.com"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"name" => "Ada", "email" => "ada@example.com"}})
+      |> render_submit()
 
-      html = view |> element("button", "Continue") |> render_click()
+      html =
+        view
+        |> form("form", %{"user" => %{"username" => ""}})
+        |> render_submit()
 
-      assert html =~ "Username must be"
+      assert html =~ "can&#39;t be blank"
     end
   end
 
@@ -98,17 +104,22 @@ defmodule VicheWeb.SignupLiveTest do
       {:ok, view, _html} = live(conn, "/signup")
 
       # Step 1
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada Lovelace"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "signup@example.com"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"name" => "Ada Lovelace", "email" => "signup@example.com"}})
+      |> render_submit()
 
       # Step 2
-      view |> element("input[name=username]") |> render_change(%{"username" => "ada_signup"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"username" => "ada_signup"}})
+      |> render_submit()
 
       # Step 3
       view |> element("[phx-value-value=personal]") |> render_click()
-      html = view |> element("button", "Create account") |> render_click()
+
+      html =
+        view
+        |> form("form")
+        |> render_submit()
 
       assert html =~ "Check your email"
       assert html =~ "magic link"
@@ -119,16 +130,20 @@ defmodule VicheWeb.SignupLiveTest do
       {:ok, view, _html} = live(conn, "/signup")
 
       # Step 1
-      view |> element("input[name=name]") |> render_change(%{"name" => "Ada"})
-      view |> element("input[name=email]") |> render_change(%{"email" => "ada@example.com"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"name" => "Ada", "email" => "ada@example.com"}})
+      |> render_submit()
 
       # Step 2
-      view |> element("input[name=username]") |> render_change(%{"username" => "ada_test"})
-      view |> element("button", "Continue") |> render_click()
+      view
+      |> form("form", %{"user" => %{"username" => "ada_test"}})
+      |> render_submit()
 
       # Step 3 - no use case selected
-      html = view |> element("button", "Create account") |> render_click()
+      html =
+        view
+        |> form("form")
+        |> render_submit()
 
       assert html =~ "Please select how you plan to use Viche"
     end

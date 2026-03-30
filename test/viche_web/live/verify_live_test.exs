@@ -13,8 +13,8 @@ defmodule VicheWeb.VerifyLiveTest do
 
       {:ok, _view, html} = live(conn, ~p"/verify?token=#{raw_token}")
 
-      assert html =~ "One sec"
-      assert html =~ "Verifying magic link"
+      assert html =~ "Identity confirmed"
+      assert html =~ "Open dashboard"
     end
 
     test "renders error view for an invalid token", %{conn: conn} do
@@ -30,20 +30,12 @@ defmodule VicheWeb.VerifyLiveTest do
       assert html =~ "Link expired"
     end
 
-    test "shows success view after steps complete", %{conn: conn} do
+    test "shows success view immediately for a valid token", %{conn: conn} do
       {:ok, user} = Accounts.create_user(%{email: "steps@example.com"})
       {:ok, raw_token, _} = Auth.create_magic_link_token(user.id)
 
-      {:ok, view, _html} = live(conn, ~p"/verify?token=#{raw_token}")
+      {:ok, _view, html} = live(conn, ~p"/verify?token=#{raw_token}")
 
-      # Drive steps to completion without the auto-scheduled timers
-      for step <- 1..4 do
-        send(view.pid, {:activate_step, step})
-        send(view.pid, {:complete_step, step})
-      end
-
-      send(view.pid, :show_success)
-      html = render(view)
       assert html =~ "Identity confirmed"
       assert html =~ "Open dashboard"
     end
@@ -54,9 +46,7 @@ defmodule VicheWeb.VerifyLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/verify?token=#{raw_token}")
 
-      send(view.pid, :redirect_to_confirm)
-
-      assert_redirect(view, "/auth/confirm?token=#{raw_token}")
+      assert render(view) =~ ~p"/auth/confirm?token=#{raw_token}"
     end
   end
 end

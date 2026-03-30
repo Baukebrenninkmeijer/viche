@@ -3,8 +3,22 @@ defmodule VicheWeb.LoginLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, form: to_form(%{"email" => ""}, as: :login), state: :form),
-     layout: false}
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Viche.PubSub, "metrics:messages")
+      :timer.send_interval(10_000, :refresh_agents)
+    end
+
+    agents_online =
+      Viche.Agents.list_agents_with_status()
+      |> Enum.count(fn agent -> agent.status == :online end)
+
+    {:ok,
+     assign(socket,
+       form: to_form(%{"email" => ""}, as: :login),
+       state: :form,
+       agents_online: agents_online,
+       messages_today: Viche.MessageCounter.get()
+     ), layout: false}
   end
 
   @impl true
@@ -20,6 +34,20 @@ defmodule VicheWeb.LoginLive do
        |> assign(form: to_form(%{"email" => email}, as: :login))
        |> put_flash(:error, "Please enter a valid email address")}
     end
+  end
+
+  @impl true
+  def handle_info({:messages_today, count}, socket) do
+    {:noreply, assign(socket, messages_today: count)}
+  end
+
+  @impl true
+  def handle_info(:refresh_agents, socket) do
+    agents_online =
+      Viche.Agents.list_agents_with_status()
+      |> Enum.count(fn agent -> agent.status == :online end)
+
+    {:noreply, assign(socket, agents_online: agents_online)}
   end
 
   defp valid_email?(email) do

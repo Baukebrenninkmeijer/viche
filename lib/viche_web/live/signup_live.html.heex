@@ -21,7 +21,7 @@
   .su-nav-link:hover{color:var(--fg)}
 
   /* ── Page ── */
-  .su-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;background:var(--bg);color:var(--fg)}
+  .su-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;color:var(--fg)}
 
   /* ── Card ── */
   .su-card{width:100%;max-width:460px;background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:36px 36px 32px;box-shadow:0 4px 24px rgba(0,0,0,0.4);opacity:0;transform:translateY(28px);animation:su-card-in 0.55s cubic-bezier(0.22,1,0.36,1) 0.1s forwards}
@@ -65,7 +65,7 @@
 
   .su-username-wrap{position:relative}
   .su-username-prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--fg-dim);pointer-events:none;user-select:none}
-  .su-username-wrap input{padding-left:28px}
+  .su-field .su-username-wrap input{padding-left:32px}
   .su-input-hint{font-size:11px;color:var(--fg-dim);margin-top:1px}
 
   .su-field-error{font-size:11px;color:#E67E80;margin-top:2px}
@@ -85,6 +85,11 @@
   .su-check-icon{position:absolute;top:8px;right:8px;width:16px;height:16px;border-radius:50%;background:var(--color-ef-green);display:flex;align-items:center;justify-content:center;font-size:9px;color:#1a2420;font-weight:800;opacity:0;transform:scale(0);transition:opacity 0.18s,transform 0.18s}
   .su-usecase-opt.selected .su-check-icon{opacity:1;transform:scale(1)}
   .su-usecase-other{grid-column:1/-1}
+  .su-usecase-other-input{display:none;margin-top:10px}
+  .su-usecase-other.selected .su-usecase-other-input{display:flex}
+  .su-usecase-other-input input{background:var(--bg-2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13px;color:var(--fg);font-family:inherit;outline:none;transition:border-color 0.18s,box-shadow 0.18s;width:100%}
+  .su-usecase-other-input input:focus{border-color:color-mix(in srgb, var(--color-ef-green) 45%, transparent);box-shadow:0 0 0 3px rgba(167,192,128,0.10)}
+  .su-usecase-other-input input::placeholder{color:var(--fg-dim);opacity:0.55}
 
   /* ── Buttons ── */
   .su-btn-row{display:flex;gap:10px;margin-top:6px}
@@ -174,152 +179,167 @@
         </div>
       </div>
 
-      <%= if @errors[:general] do %>
-        <div class="su-error-banner">{@errors[:general]}</div>
-      <% end %>
-      
+      <.form
+        for={@form}
+        phx-change="validate"
+        phx-submit={if @step < 3, do: "next_step", else: "submit"}
+      >
+        <!-- Hidden inputs preserve values across steps -->
+        <%= if @step != 1 do %>
+          <input type="hidden" name="user[name]" value={@form[:name].value} />
+          <input type="hidden" name="user[email]" value={@form[:email].value} />
+        <% end %>
+        <%= if @step != 2 do %>
+          <input type="hidden" name="user[username]" value={@form[:username].value} />
+        <% end %>
+        
 <!-- Step 1: Name & Email -->
-      <%= if @step == 1 do %>
-        <div class="su-form-step active">
-          <div class={"su-field #{if @errors[:name], do: "has-error"}"}>
-            <label>Name <span class="su-label-required">*</span></label>
-            <input
-              type="text"
-              name="name"
-              value={@name}
-              placeholder="Ada Lovelace"
-              autocomplete="name"
-              phx-change="validate"
-              phx-debounce="300"
-            />
-            <%= if @errors[:name] do %>
-              <div class="su-field-error">{@errors[:name]}</div>
-            <% end %>
-          </div>
-          <div class={"su-field #{if @errors[:email], do: "has-error"}"}>
-            <label>Email <span class="su-label-required">*</span></label>
-            <input
-              type="email"
-              name="email"
-              value={@email}
-              placeholder="ada@example.com"
-              autocomplete="email"
-              phx-change="validate"
-              phx-debounce="300"
-            />
-            <%= if @errors[:email] do %>
-              <div class="su-field-error">{@errors[:email]}</div>
-            <% end %>
-          </div>
-          <div class="su-btn-row">
-            <button type="button" class="su-btn-next" phx-click="next_step">
-              Continue &rarr;
-            </button>
-          </div>
-        </div>
-      <% end %>
-      
-<!-- Step 2: Username -->
-      <%= if @step == 2 do %>
-        <div class="su-form-step active">
-          <div class={"su-field #{if @errors[:username], do: "has-error"}"}>
-            <label>Username <span class="su-label-required">*</span></label>
-            <div class="su-username-wrap">
-              <span class="su-username-prefix">@</span>
+        <%= if @step == 1 do %>
+          <div class="su-form-step active">
+            <div class={"su-field #{if @form[:name].errors != [], do: "has-error"}"}>
+              <label>Name <span class="su-label-required">*</span></label>
               <input
                 type="text"
-                name="username"
-                value={@username}
-                placeholder="ada"
-                autocomplete="username"
-                maxlength="30"
-                phx-change="validate"
-                phx-debounce="300"
+                name="user[name]"
+                value={@form[:name].value}
+                placeholder="Ada Lovelace"
+                autocomplete="name"
               />
+              <%= if @form[:name].errors != [] do %>
+                <div class="su-field-error">{elem(hd(@form[:name].errors), 0)}</div>
+              <% end %>
             </div>
-            <div class="su-input-hint">Letters, numbers, and underscores only</div>
-            <%= if @errors[:username] do %>
-              <div class="su-field-error">{@errors[:username]}</div>
-            <% end %>
+            <div class={"su-field #{if @form[:email].errors != [], do: "has-error"}"}>
+              <label>Email <span class="su-label-required">*</span></label>
+              <input
+                type="email"
+                name="user[email]"
+                value={@form[:email].value}
+                placeholder="ada@example.com"
+                autocomplete="email"
+              />
+              <%= if @form[:email].errors != [] do %>
+                <div class="su-field-error">{elem(hd(@form[:email].errors), 0)}</div>
+              <% end %>
+            </div>
+            <div class="su-btn-row">
+              <button type="submit" class="su-btn-next">
+                Continue &rarr;
+              </button>
+            </div>
           </div>
-          <div class="su-btn-row">
-            <button type="button" class="su-btn-back" phx-click="prev_step">&larr; Back</button>
-            <button type="button" id="next-step-2" class="su-btn-next" phx-click="next_step">
-              Continue &rarr;
-            </button>
+        <% end %>
+        
+<!-- Step 2: Username -->
+        <%= if @step == 2 do %>
+          <div class="su-form-step active">
+            <div class={"su-field #{if @form[:username].errors != [], do: "has-error"}"}>
+              <label>Username <span class="su-label-required">*</span></label>
+              <div class="su-username-wrap">
+                <span class="su-username-prefix">@</span>
+                <input
+                  type="text"
+                  name="user[username]"
+                  value={@form[:username].value}
+                  placeholder="ada"
+                  autocomplete="username"
+                  maxlength="30"
+                />
+              </div>
+              <div class="su-input-hint">Letters, numbers, and underscores only</div>
+              <%= if @form[:username].errors != [] do %>
+                <div class="su-field-error">{elem(hd(@form[:username].errors), 0)}</div>
+              <% end %>
+            </div>
+            <div class="su-btn-row">
+              <button type="button" class="su-btn-back" phx-click="prev_step">&larr; Back</button>
+              <button type="submit" id="next-step-2" class="su-btn-next">
+                Continue &rarr;
+              </button>
+            </div>
           </div>
-        </div>
-      <% end %>
-      
+        <% end %>
+        
 <!-- Step 3: Use case -->
-      <%= if @step == 3 do %>
-        <div class="su-form-step active">
-          <div class="su-field">
-            <label>How do you plan to use Viche? <span class="su-label-required">*</span></label>
-            <div class="su-usecase-grid">
-              <div
-                class={"su-usecase-opt #{if @usecase == "personal", do: "selected"}"}
-                phx-click="select_usecase"
-                phx-value-value="personal"
-              >
-                <div class="su-check-icon">&#10003;</div>
-                <div class="su-usecase-icon">&#129302;</div>
-                <div class="su-usecase-title">Personal agents</div>
-                <div class="su-usecase-desc">Automations &amp; workflows for myself</div>
+        <%= if @step == 3 do %>
+          <div class="su-form-step active">
+            <div class="su-field">
+              <label>
+                How do you plan to use Viche? <span class="su-label-required">*</span>
+              </label>
+              <div class="su-usecase-grid">
+                <div
+                  class={"su-usecase-opt #{if @usecase == "personal", do: "selected"}"}
+                  phx-click="select_usecase"
+                  phx-value-value="personal"
+                >
+                  <div class="su-check-icon">&#10003;</div>
+                  <div class="su-usecase-icon">&#129302;</div>
+                  <div class="su-usecase-title">Personal agents</div>
+                  <div class="su-usecase-desc">Automations &amp; workflows for myself</div>
+                </div>
+                <div
+                  class={"su-usecase-opt #{if @usecase == "product", do: "selected"}"}
+                  phx-click="select_usecase"
+                  phx-value-value="product"
+                >
+                  <div class="su-check-icon">&#10003;</div>
+                  <div class="su-usecase-icon">&#128640;</div>
+                  <div class="su-usecase-title">Building a product</div>
+                  <div class="su-usecase-desc">Integrate agents into my app or service</div>
+                </div>
+                <div
+                  class={"su-usecase-opt #{if @usecase == "enterprise", do: "selected"}"}
+                  phx-click="select_usecase"
+                  phx-value-value="enterprise"
+                >
+                  <div class="su-check-icon">&#10003;</div>
+                  <div class="su-usecase-icon">&#127970;</div>
+                  <div class="su-usecase-title">Enterprise / team</div>
+                  <div class="su-usecase-desc">Internal tools, ops, or org-wide agents</div>
+                </div>
+                <div
+                  class={"su-usecase-opt #{if @usecase == "research", do: "selected"}"}
+                  phx-click="select_usecase"
+                  phx-value-value="research"
+                >
+                  <div class="su-check-icon">&#10003;</div>
+                  <div class="su-usecase-icon">&#128300;</div>
+                  <div class="su-usecase-title">Research</div>
+                  <div class="su-usecase-desc">Exploring agent infra or AI protocols</div>
+                </div>
+                <div
+                  class={"su-usecase-opt su-usecase-other #{if @usecase == "other", do: "selected"}"}
+                  phx-click="select_usecase"
+                  phx-value-value="other"
+                >
+                  <div class="su-check-icon">&#10003;</div>
+                  <div class="su-usecase-icon">&#10024;</div>
+                  <div class="su-usecase-title">Something else</div>
+                  <div class="su-usecase-desc">Tell us more below</div>
+                  <div class="su-usecase-other-input">
+                    <input
+                      type="text"
+                      placeholder="What are you building?"
+                      value={@usecase_other_text}
+                      phx-keyup="set_usecase_other"
+                    />
+                  </div>
+                </div>
               </div>
-              <div
-                class={"su-usecase-opt #{if @usecase == "product", do: "selected"}"}
-                phx-click="select_usecase"
-                phx-value-value="product"
-              >
-                <div class="su-check-icon">&#10003;</div>
-                <div class="su-usecase-icon">&#128640;</div>
-                <div class="su-usecase-title">Building a product</div>
-                <div class="su-usecase-desc">Integrate agents into my app or service</div>
-              </div>
-              <div
-                class={"su-usecase-opt #{if @usecase == "enterprise", do: "selected"}"}
-                phx-click="select_usecase"
-                phx-value-value="enterprise"
-              >
-                <div class="su-check-icon">&#10003;</div>
-                <div class="su-usecase-icon">&#127970;</div>
-                <div class="su-usecase-title">Enterprise / team</div>
-                <div class="su-usecase-desc">Internal tools, ops, or org-wide agents</div>
-              </div>
-              <div
-                class={"su-usecase-opt #{if @usecase == "research", do: "selected"}"}
-                phx-click="select_usecase"
-                phx-value-value="research"
-              >
-                <div class="su-check-icon">&#10003;</div>
-                <div class="su-usecase-icon">&#128300;</div>
-                <div class="su-usecase-title">Research</div>
-                <div class="su-usecase-desc">Exploring agent infra or AI protocols</div>
-              </div>
-              <div
-                class={"su-usecase-opt su-usecase-other #{if @usecase == "other", do: "selected"}"}
-                phx-click="select_usecase"
-                phx-value-value="other"
-              >
-                <div class="su-check-icon">&#10003;</div>
-                <div class="su-usecase-icon">&#10024;</div>
-                <div class="su-usecase-title">Something else</div>
-                <div class="su-usecase-desc">Tell us more below</div>
-              </div>
+              <%= if @usecase_error do %>
+                <div class="su-field-error" style="margin-top:6px">{@usecase_error}</div>
+              <% end %>
             </div>
-            <%= if @errors[:usecase] do %>
-              <div class="su-field-error" style="margin-top:6px">{@errors[:usecase]}</div>
-            <% end %>
+            <div class="su-btn-row">
+              <button type="button" class="su-btn-back" phx-click="prev_step">&larr; Back</button>
+              <button type="submit" class="su-btn-submit">
+                Create account &rarr;
+              </button>
+            </div>
           </div>
-          <div class="su-btn-row">
-            <button type="button" class="su-btn-back" phx-click="prev_step">&larr; Back</button>
-            <button type="button" class="su-btn-submit" phx-click="submit">
-              Create account &rarr;
-            </button>
-          </div>
-        </div>
-      <% end %>
+        <% end %>
+      </.form>
 
       <div class="su-card-footer">
         Already have an account? <a href="/login">Sign in</a>
@@ -342,5 +362,7 @@
 <div class="su-status-bar">
   <span><span class="su-status-dot"></span>network live</span>
   <span class="su-status-sep">&middot;</span>
-  <span>viche agent mesh</span>
+  <span><span class="su-status-num">{@agents_online}</span> agents online</span>
+  <span class="su-status-sep">&middot;</span>
+  <span><span class="su-status-num">{@messages_today}</span> messages sent</span>
 </div>

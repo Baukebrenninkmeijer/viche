@@ -53,6 +53,11 @@ defmodule Viche.Auth do
     base = Application.get_env(:viche, :app_url, "http://localhost:4000")
     url = "#{base}/verify?token=#{raw_token}"
 
+    if Application.get_env(:viche, :env, Mix.env()) == :dev do
+      require Logger
+      Logger.debug("\n\n  [magic link] #{url}\n")
+    end
+
     Email.magic_link(email, url)
     |> Mailer.deliver()
 

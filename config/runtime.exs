@@ -34,7 +34,10 @@ if config_env() != :test do
 
       config :swoosh, :api_client, Swoosh.ApiClient.Req
 
-    _console_or_nil ->
+    "console" ->
+      config :viche, Viche.Mailer, adapter: Swoosh.Adapters.Logger
+
+    _ ->
       config :viche, Viche.Mailer, adapter: Swoosh.Adapters.Local
   end
 end

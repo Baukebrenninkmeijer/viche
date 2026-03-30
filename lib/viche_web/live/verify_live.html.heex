@@ -22,7 +22,7 @@
   .vfy-logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
 
   /* Page */
-  .vfy-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;background:var(--bg);color:var(--fg)}
+  .vfy-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;color:var(--fg)}
 
   /* Card */
   .vfy-card{width:100%;max-width:420px;background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:40px 36px 32px;box-shadow:0 4px 24px rgba(0,0,0,0.4);text-align:center;opacity:0;transform:translateY(28px);animation:vfy-card-in 0.55s cubic-bezier(0.22,1,0.36,1) 0.1s forwards}
@@ -112,8 +112,8 @@
 
 <div class="vfy-page">
   <div class="vfy-card">
-
-    <!-- Mascot -->
+    
+<!-- Mascot -->
     <div class="vfy-mascot-wrap">
       <div class="vfy-mascot-halo"></div>
       <%= if @status == :verifying do %>
@@ -121,14 +121,13 @@
       <% end %>
       <img class="vfy-mascot" src={~p"/images/logo-transparent.png"} alt="Viche mascot" />
     </div>
-
-    <!-- Verifying view -->
+    
+<!-- Verifying view -->
     <%= if @status == :verifying do %>
       <div id="verifyingView">
         <div class="vfy-title">One sec, we're on it…</div>
         <div class="vfy-sub">
-          Waving your magic link at the server.<br />
-          This usually takes less than a heartbeat.
+          Waving your magic link at the server.<br /> This usually takes less than a heartbeat.
         </div>
 
         <div class="vfy-status-line">
@@ -150,8 +149,8 @@
         </div>
       </div>
     <% end %>
-
-    <!-- Success view -->
+    
+<!-- Success view -->
     <div class={["vfy-success-overlay", @status == :success && "active"]}>
       <div class="vfy-success-badge">Identity confirmed</div>
       <div class="vfy-title" style="margin-bottom:6px">You're in</div>
@@ -162,8 +161,8 @@
         Open dashboard →
       </a>
     </div>
-
-    <!-- Error view -->
+    
+<!-- Error view -->
     <div class={["vfy-error-overlay", @status == :error && "active"]}>
       <div class="vfy-error-icon">🔗</div>
       <div class="vfy-error-title">Link expired</div>
@@ -178,7 +177,6 @@
         Didn't request this? <a href={~p"/login"}>Ignore it safely</a>
       </div>
     <% end %>
-
   </div>
 </div>
 
