@@ -15,12 +15,19 @@
 
     <%!-- Nav --%>
     <nav class="flex-1 flex flex-col px-2 gap-0.5 mt-1">
-      <.link navigate="/dashboard" class="nav-item">
+      <%!-- Registry Selector --%>
+      <Layouts.registry_selector
+        selected_registry={@selected_registry}
+        registries={@registries}
+        public_mode={@public_mode}
+      />
+
+      <.link navigate={~p"/dashboard?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-squares-2x2-micro" class="size-4" />
         <span>Dashboard</span>
       </.link>
 
-      <.link navigate="/network" class="nav-item">
+      <.link navigate={~p"/network?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-signal-micro" class="size-4" />
         <span>Network</span>
       </.link>
@@ -48,7 +55,7 @@
         </span>
       </div>
 
-      <.link navigate="/sessions" class="nav-item">
+      <.link navigate={~p"/sessions?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-envelope-micro" class="size-4" />
         <span>Inboxes</span>
       </.link>
@@ -62,7 +69,7 @@
         Demo
       </div>
 
-      <.link navigate="/network" class="nav-item">
+      <.link navigate={~p"/network?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-presentation-chart-bar-micro" class="size-4" />
         <span>Network Demo</span>
       </.link>
@@ -74,7 +81,7 @@
 
       <div class="flex-1"></div>
 
-      <.link navigate="/settings" class="nav-item">
+      <.link navigate={~p"/settings?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-cog-6-tooth-micro" class="size-4" />
         <span>Settings</span>
       </.link>
@@ -123,13 +130,13 @@
         />
       </form>
 
-      <%= for {label, value} <- [{"All", "all"}, {"Online", "online"}, {"Offline", "offline"}] do %>
+      <%= for {label, str_val, atom_val} <- [{"All", "all", :all}, {"Online", "online", :online}, {"Offline", "offline", :offline}] do %>
         <button
           phx-click="filter"
-          phx-value-status={value}
+          phx-value-status={str_val}
           class="text-[11px] px-3 py-1 rounded-full font-medium transition-colors"
           style={
-            if @filter == String.to_atom(value),
+            if @filter == atom_val,
               do:
                 "background:color-mix(in srgb,var(--color-ef-green) 20%,transparent);color:var(--color-ef-green);border:1px solid var(--color-ef-green)",
               else: "background:var(--bg-2);color:var(--fg-dim);border:1px solid var(--border)"
@@ -172,7 +179,7 @@
           ]
 
           avatar_color = Enum.at(avatar_colors, rem(:erlang.phash2(agent.name), 5))
-          initial = agent.name |> String.first() |> String.upcase() %>
+          initial = (agent.name || "?") |> String.first() |> String.upcase() %>
           <div
             phx-click="select_agent"
             phx-value-id={agent.id}

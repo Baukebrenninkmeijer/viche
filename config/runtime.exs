@@ -58,6 +58,10 @@ if config_env() == :prod do
 
   config :viche, simple_analytics_enabled: true
 
+  # In prod, show public mode by default. Set VICHE_PUBLIC_MODE=false to disable.
+  public_mode = System.get_env("VICHE_PUBLIC_MODE") not in ~w(false 0)
+  config :viche, :public_mode, public_mode
+
   config :viche, VicheWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [

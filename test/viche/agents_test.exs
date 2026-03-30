@@ -621,6 +621,239 @@ defmodule Viche.AgentsTest do
     end
   end
 
+  describe "list_agents_with_status/1" do
+    setup do
+      clear_all_agents()
+      :ok
+    end
+
+    test "filters to only agents in the given registry" do
+      {:ok, global_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "global-agent",
+          registries: ["global"]
+        })
+
+      {:ok, alpha_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "alpha-agent",
+          registries: ["team-alpha"]
+        })
+
+      result = Agents.list_agents_with_status("global")
+      ids = Enum.map(result, & &1.id)
+
+      assert global_agent.id in ids
+      refute alpha_agent.id in ids
+    end
+
+    test "returns only agents in team-alpha when filtering by team-alpha" do
+      {:ok, global_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "global-agent",
+          registries: ["global"]
+        })
+
+      {:ok, alpha_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "alpha-agent",
+          registries: ["team-alpha"]
+        })
+
+      result = Agents.list_agents_with_status("team-alpha")
+      ids = Enum.map(result, & &1.id)
+
+      assert alpha_agent.id in ids
+      refute global_agent.id in ids
+    end
+
+    test "includes multi-registry agent when filtering by global" do
+      {:ok, multi_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "multi-agent",
+          registries: ["global", "team-alpha"]
+        })
+
+      result = Agents.list_agents_with_status("global")
+      ids = Enum.map(result, & &1.id)
+
+      assert multi_agent.id in ids
+    end
+
+    test "includes multi-registry agent when filtering by team-alpha" do
+      {:ok, multi_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "multi-agent",
+          registries: ["global", "team-alpha"]
+        })
+
+      result = Agents.list_agents_with_status("team-alpha")
+      ids = Enum.map(result, & &1.id)
+
+      assert multi_agent.id in ids
+    end
+
+    test ":all returns all agents regardless of registry" do
+      {:ok, global_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "global-agent",
+          registries: ["global"]
+        })
+
+      {:ok, alpha_agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          name: "alpha-agent",
+          registries: ["team-alpha"]
+        })
+
+      result = Agents.list_agents_with_status(:all)
+      ids = Enum.map(result, & &1.id)
+
+      assert global_agent.id in ids
+      assert alpha_agent.id in ids
+      assert length(result) == 2
+    end
+
+    test "returns status-enriched maps (same shape as list_agents_with_status/0)" do
+      {:ok, _} = Agents.register_agent(%{capabilities: ["coding"], registries: ["global"]})
+
+      [agent] = Agents.list_agents_with_status("global")
+
+      assert Map.has_key?(agent, :id)
+      assert Map.has_key?(agent, :status)
+      assert Map.has_key?(agent, :last_activity)
+      assert Map.has_key?(agent, :registered_at)
+      assert Map.has_key?(agent, :connection_type)
+      assert Map.has_key?(agent, :queue_depth)
+      assert Map.has_key?(agent, :polling_timeout_ms)
+    end
+
+    test "returns empty list when no agents in the given registry" do
+      {:ok, _} = Agents.register_agent(%{capabilities: ["coding"], registries: ["global"]})
+
+      result = Agents.list_agents_with_status("team-alpha")
+      assert result == []
+    end
+
+    test "list_agents_with_status/0 (zero-arity) remains unchanged" do
+      {:ok, global_agent} =
+        Agents.register_agent(%{capabilities: ["coding"], registries: ["global"]})
+
+      {:ok, alpha_agent} =
+        Agents.register_agent(%{capabilities: ["coding"], registries: ["team-alpha"]})
+
+      all = Agents.list_agents_with_status()
+      ids = Enum.map(all, & &1.id)
+
+      assert global_agent.id in ids
+      assert alpha_agent.id in ids
+      assert length(all) == 2
+    end
+  end
+
+  describe "list_registries/0" do
+    setup do
+      clear_all_agents()
+      :ok
+    end
+
+    test "returns empty list when no agents are registered" do
+      assert Agents.list_registries() == []
+    end
+
+    test "returns sorted unique registry tokens from all live agents" do
+      {:ok, _} = Agents.register_agent(%{capabilities: ["coding"], registries: ["global"]})
+
+      {:ok, _} =
+        Agents.register_agent(%{capabilities: ["coding"], registries: ["global", "team-alpha"]})
+
+      result = Agents.list_registries()
+      assert result == ["global", "team-alpha"]
+    end
+
+    test "returns unique tokens even when many agents share the same registry" do
+      {:ok, _} = Agents.register_agent(%{capabilities: ["a"], registries: ["global"]})
+      {:ok, _} = Agents.register_agent(%{capabilities: ["b"], registries: ["global"]})
+      {:ok, _} = Agents.register_agent(%{capabilities: ["c"], registries: ["global"]})
+
+      assert Agents.list_registries() == ["global"]
+    end
+
+    test "tokens are sorted alphabetically" do
+      {:ok, _} = Agents.register_agent(%{capabilities: ["a"], registries: ["zzz-registry"]})
+      {:ok, _} = Agents.register_agent(%{capabilities: ["b"], registries: ["aaa-registry"]})
+      {:ok, _} = Agents.register_agent(%{capabilities: ["c"], registries: ["mmm-registry"]})
+
+      assert Agents.list_registries() == ["aaa-registry", "mmm-registry", "zzz-registry"]
+    end
+  end
+
+  describe "list_agent_registries/0" do
+    setup do
+      clear_all_agents()
+      :ok
+    end
+
+    test "returns empty map when no agents are registered" do
+      assert Agents.list_agent_registries() == %{}
+    end
+
+    test "returns map of agent_id => registries for single-registry agents" do
+      {:ok, agent_a} =
+        Agents.register_agent(%{capabilities: ["coding"], registries: ["global"]})
+
+      {:ok, agent_b} =
+        Agents.register_agent(%{capabilities: ["testing"], registries: ["team-alpha"]})
+
+      result = Agents.list_agent_registries()
+
+      assert Map.get(result, agent_a.id) == ["global"]
+      assert Map.get(result, agent_b.id) == ["team-alpha"]
+      assert map_size(result) == 2
+    end
+
+    test "returns all registries for an agent in multiple registries" do
+      {:ok, agent} =
+        Agents.register_agent(%{
+          capabilities: ["coding"],
+          registries: ["global", "team-x", "team-y"]
+        })
+
+      result = Agents.list_agent_registries()
+
+      assert Map.get(result, agent.id) == ["global", "team-x", "team-y"]
+    end
+
+    test "agents with different registries are all in the map" do
+      {:ok, agent_a} =
+        Agents.register_agent(%{capabilities: ["a"], registries: ["global"]})
+
+      {:ok, agent_b} =
+        Agents.register_agent(%{capabilities: ["b"], registries: ["team-beta"]})
+
+      {:ok, agent_multi} =
+        Agents.register_agent(%{
+          capabilities: ["c"],
+          registries: ["global", "team-beta"]
+        })
+
+      result = Agents.list_agent_registries()
+
+      assert Map.get(result, agent_a.id) == ["global"]
+      assert Map.get(result, agent_b.id) == ["team-beta"]
+      assert Map.get(result, agent_multi.id) == ["global", "team-beta"]
+      assert map_size(result) == 3
+    end
+  end
+
   describe "register_agent/1 with polling_timeout_ms" do
     test "accepts custom polling_timeout_ms and returns it in agent struct" do
       assert {:ok, agent} =

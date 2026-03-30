@@ -12,6 +12,8 @@ config :viche,
   generators: [timestamp_type: :utc_datetime],
   simple_analytics_enabled: false
 
+config :viche, :public_mode, false
+
 # Configure the endpoint
 config :viche, VicheWeb.Endpoint,
   url: [host: "localhost"],

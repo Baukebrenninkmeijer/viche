@@ -15,12 +15,19 @@
 
     <%!-- Nav --%>
     <nav class="flex-1 flex flex-col px-2 gap-0.5 mt-1">
-      <.link navigate="/dashboard" class="nav-item">
+      <%!-- Registry Selector --%>
+      <Layouts.registry_selector
+        selected_registry={@selected_registry}
+        registries={@registries}
+        public_mode={@public_mode}
+      />
+
+      <.link navigate={~p"/dashboard?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-squares-2x2-micro" class="size-4" />
         <span>Dashboard</span>
       </.link>
 
-      <.link navigate="/network" class="nav-item">
+      <.link navigate={~p"/network?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-signal-micro" class="size-4" />
         <span>Network</span>
       </.link>
@@ -48,7 +55,7 @@
         </span>
       </div>
 
-      <.link navigate="/sessions" class="nav-item">
+      <.link navigate={~p"/sessions?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-envelope-micro" class="size-4" />
         <span>Inboxes</span>
       </.link>
@@ -62,7 +69,7 @@
         Demo
       </div>
 
-      <.link navigate="/network" class="nav-item">
+      <.link navigate={~p"/network?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-presentation-chart-bar-micro" class="size-4" />
         <span>Network Demo</span>
       </.link>
@@ -74,7 +81,7 @@
 
       <div class="flex-1"></div>
 
-      <.link navigate="/settings" class="nav-item">
+      <.link navigate={~p"/settings?registry=#{@selected_registry}"} class="nav-item">
         <.icon name="hero-cog-6-tooth-micro" class="size-4" />
         <span>Settings</span>
       </.link>
@@ -99,7 +106,7 @@
       style="background:var(--bg-1);border-color:var(--border)"
     >
       <.link
-        navigate="/agents"
+        navigate={~p"/agents?registry=#{@selected_registry}"}
         class="flex items-center gap-1 text-[13px]"
         style="color:var(--fg-dim)"
       >
@@ -126,7 +133,7 @@
       <div class="flex-1 flex items-center justify-center flex-col gap-4">
         <span class="text-[14px]" style="color:var(--fg-dim)">Agent not found</span>
         <.link
-          navigate="/agents"
+          navigate={~p"/agents?registry=#{@selected_registry}"}
           class="text-[12px] px-4 py-1.5 rounded-lg"
           style="background:var(--color-ef-green);color:var(--color-ef-bg0)"
         >

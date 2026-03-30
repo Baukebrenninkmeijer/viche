@@ -57,42 +57,51 @@ defmodule Viche.Agents do
   def list_agents_with_status do
     Viche.AgentRegistry
     |> all_agents()
-    |> Enum.map(fn {id, meta} ->
-      via = {:via, Registry, {Viche.AgentRegistry, id}}
+    |> build_status_maps()
+  end
 
-      try do
-        agent = AgentServer.get_state(via)
-        status = derive_status(agent)
-        inbox_depth = length(agent.inbox)
+  @doc """
+  Returns registered agents enriched with live status data, filtered by registry.
 
-        %{
-          id: id,
-          name: meta.name,
-          capabilities: meta.capabilities,
-          description: meta.description,
-          status: status,
-          last_activity: agent.last_activity,
-          registered_at: agent.registered_at,
-          connection_type: agent.connection_type,
-          queue_depth: inbox_depth,
-          polling_timeout_ms: agent.polling_timeout_ms
-        }
-      rescue
-        _ ->
-          %{
-            id: id,
-            name: meta.name,
-            capabilities: meta.capabilities,
-            description: meta.description,
-            status: :offline,
-            last_activity: nil,
-            registered_at: nil,
-            connection_type: :long_poll,
-            queue_depth: 0,
-            polling_timeout_ms: 60_000
-          }
-      end
-    end)
+  ## Parameters
+    - `registry` — a registry token string (e.g. `"global"`, `"team-alpha"`) to return only
+      agents whose `registries` list contains that token; or the atom `:all` to return every
+      agent regardless of registry membership (equivalent to `list_agents_with_status/0`).
+
+  Each returned map has the same shape as `list_agents_with_status/0`.
+  """
+  @spec list_agents_with_status(String.t() | :all) :: [map()]
+  def list_agents_with_status(:all), do: list_agents_with_status()
+
+  def list_agents_with_status(registry) when is_binary(registry) do
+    Viche.AgentRegistry
+    |> all_agents()
+    |> Enum.filter(fn {_id, meta} -> registry in agent_registries(meta) end)
+    |> build_status_maps()
+  end
+
+  @doc """
+  Returns a sorted list of unique registry tokens from all currently live agents.
+
+  ## Returns
+    - `[String.t()]` — alphabetically sorted, deduplicated list; empty list when no agents
+      are registered.
+  """
+  @spec list_registries() :: [String.t()]
+  def list_registries do
+    Viche.AgentRegistry
+    |> all_agents()
+    |> Enum.flat_map(fn {_id, meta} -> agent_registries(meta) end)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  @doc "Returns a map of agent_id => list of registry tokens for all live agents."
+  @spec list_agent_registries() :: %{String.t() => [String.t()]}
+  def list_agent_registries do
+    Viche.AgentRegistry
+    |> all_agents()
+    |> Map.new(fn {id, meta} -> {id, meta.registries || ["global"]} end)
   end
 
   @doc """
@@ -342,6 +351,46 @@ defmodule Viche.Agents do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  @spec build_status_maps([{String.t(), map()}]) :: [map()]
+  defp build_status_maps(agent_pairs) do
+    Enum.map(agent_pairs, fn {id, meta} ->
+      via = {:via, Registry, {Viche.AgentRegistry, id}}
+
+      try do
+        agent = AgentServer.get_state(via)
+        status = derive_status(agent)
+        inbox_depth = length(agent.inbox)
+
+        %{
+          id: id,
+          name: meta.name,
+          capabilities: meta.capabilities,
+          description: meta.description,
+          status: status,
+          last_activity: agent.last_activity,
+          registered_at: agent.registered_at,
+          connection_type: agent.connection_type,
+          queue_depth: inbox_depth,
+          polling_timeout_ms: agent.polling_timeout_ms
+        }
+      rescue
+        _ ->
+          %{
+            id: id,
+            name: meta.name,
+            capabilities: meta.capabilities,
+            description: meta.description,
+            status: :offline,
+            last_activity: nil,
+            registered_at: nil,
+            connection_type: :long_poll,
+            queue_depth: 0,
+            polling_timeout_ms: 60_000
+          }
+      end
+    end)
+  end
 
   @spec derive_status(Agent.t()) :: :online | :offline
   defp derive_status(%Agent{connection_type: :websocket}), do: :online

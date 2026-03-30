@@ -1,68 +1,82 @@
 defmodule VicheWeb.NetworkLive do
   use VicheWeb, :live_view
 
+  alias VicheWeb.Live.RegistryScope
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(Viche.PubSub, "registry:global")
+      RegistryScope.subscribe("global")
       Phoenix.PubSub.subscribe(Viche.PubSub, "metrics:messages")
       subscribe_to_all_agents(Viche.Agents.list_agents_with_status())
       Process.send_after(self(), :tick, 3_000)
     end
 
-    agents = Viche.Agents.list_agents_with_status() |> Enum.map(&add_color/1)
-    links = compute_links(agents)
-    online = Enum.count(agents, &(&1.status == :online))
+    public_mode = Application.get_env(:viche, :public_mode, false)
 
     socket =
       socket
-      |> assign(:agents, agents)
-      |> assign(:links, links)
+      |> assign(:selected_registry, "global")
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, if(public_mode, do: [], else: Viche.Agents.list_registries()))
+      |> assign(:agent_registry_map, Viche.Agents.list_agent_registries())
+      |> assign(:feed_by_registry, %{})
       |> assign(:feed, [])
       |> assign(:paused, false)
-      |> assign(:agent_count, length(agents))
-      |> assign(:online_count, online)
       |> assign(:session_count, 3)
       |> assign(:messages_today, Viche.MessageCounter.get())
+      |> load_graph()
 
     {:ok, socket}
   end
 
   @impl true
-  def handle_info(:tick, socket) do
-    Process.send_after(self(), :tick, 3_000)
-    agents = Viche.Agents.list_agents_with_status() |> Enum.map(&add_color/1)
-    links = compute_links(agents)
-    online = Enum.count(agents, &(&1.status == :online))
+  def handle_params(params, _uri, socket) do
+    registry =
+      if socket.assigns.public_mode do
+        "global"
+      else
+        params
+        |> Map.get("registry", "global")
+        |> RegistryScope.normalize(socket.assigns.registries)
+      end
+
+    old_registry = socket.assigns.selected_registry
+
+    if connected?(socket) do
+      RegistryScope.switch(old_registry, registry)
+    end
 
     socket =
       socket
-      |> assign(:agents, agents)
-      |> assign(:links, links)
-      |> assign(:agent_count, length(agents))
-      |> assign(:online_count, online)
-      |> push_event("graph_update", %{
-        agents:
-          Jason.encode!(
-            Enum.map(agents, fn a ->
-              %{id: a.id, name: a.name, color: a.color, status: to_string(a.status)}
-            end)
-          ),
-        links: Jason.encode!(links)
-      })
+      |> assign(:selected_registry, registry)
+      |> load_graph_and_push()
+      |> recompute_feed()
 
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_info(:tick, socket) do
+    Process.send_after(self(), :tick, 3_000)
+
+    {:noreply, load_graph_and_push(socket)}
+  end
+
   def handle_info(
         %Phoenix.Socket.Broadcast{
-          topic: "registry:global",
+          topic: "registry:" <> _,
           event: "agent_joined",
           payload: payload
         },
         socket
       ) do
+    new_agent_registry_map = Viche.Agents.list_agent_registries()
+    registries = RegistryScope.registries_for_agent(new_agent_registry_map, payload.id)
+
     event = %{
+      id: Ecto.UUID.generate(),
+      inserted_at: DateTime.utc_now(),
       type: "join",
       from: payload.name,
       to: "registry",
@@ -70,39 +84,37 @@ defmodule VicheWeb.NetworkLive do
       at: "just now"
     }
 
-    agents = Viche.Agents.list_agents_with_status() |> Enum.map(&add_color/1)
-    links = compute_links(agents)
-    online = Enum.count(agents, &(&1.status == :online))
+    feed_by_registry =
+      RegistryScope.push_event_by_registry(socket.assigns.feed_by_registry, registries, event)
 
     socket =
       socket
-      |> assign(:agents, agents)
-      |> assign(:links, links)
-      |> assign(:agent_count, length(agents))
-      |> assign(:online_count, online)
-      |> push_event("graph_update", %{
-        agents:
-          Jason.encode!(
-            Enum.map(agents, fn a ->
-              %{id: a.id, name: a.name, color: a.color, status: to_string(a.status)}
-            end)
-          ),
-        links: Jason.encode!(links)
-      })
-      |> update(:feed, fn feed -> [event | Enum.take(feed, 49)] end)
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
+      |> assign(:agent_registry_map, new_agent_registry_map)
+      |> assign(:feed_by_registry, feed_by_registry)
+      |> load_graph_and_push()
+      |> recompute_feed()
 
     {:noreply, socket}
   end
 
   def handle_info(
         %Phoenix.Socket.Broadcast{
-          topic: "registry:global",
+          topic: "registry:" <> _,
           event: "agent_left",
           payload: payload
         },
         socket
       ) do
+    leaving_registries =
+      RegistryScope.registries_for_agent(socket.assigns.agent_registry_map, payload.id)
+
     event = %{
+      id: Ecto.UUID.generate(),
+      inserted_at: DateTime.utc_now(),
       type: "task",
       from: payload.id,
       to: "registry",
@@ -110,26 +122,25 @@ defmodule VicheWeb.NetworkLive do
       at: "just now"
     }
 
-    agents = Viche.Agents.list_agents_with_status() |> Enum.map(&add_color/1)
-    links = compute_links(agents)
-    online = Enum.count(agents, &(&1.status == :online))
+    feed_by_registry =
+      RegistryScope.push_event_by_registry(
+        socket.assigns.feed_by_registry,
+        leaving_registries,
+        event
+      )
+
+    new_agent_registry_map = Viche.Agents.list_agent_registries()
 
     socket =
       socket
-      |> assign(:agents, agents)
-      |> assign(:links, links)
-      |> assign(:agent_count, length(agents))
-      |> assign(:online_count, online)
-      |> push_event("graph_update", %{
-        agents:
-          Jason.encode!(
-            Enum.map(agents, fn a ->
-              %{id: a.id, name: a.name, color: a.color, status: to_string(a.status)}
-            end)
-          ),
-        links: Jason.encode!(links)
-      })
-      |> update(:feed, fn feed -> [event | Enum.take(feed, 49)] end)
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
+      |> assign(:agent_registry_map, new_agent_registry_map)
+      |> assign(:feed_by_registry, feed_by_registry)
+      |> load_graph_and_push()
+      |> recompute_feed()
 
     {:noreply, socket}
   end
@@ -142,43 +153,56 @@ defmodule VicheWeb.NetworkLive do
         },
         socket
       ) do
-    # Find the recipient agent color for the pulse animation
-    color =
-      case Enum.find(socket.assigns.agents, &(&1.id == agent_id)) do
-        nil -> "#A7C080"
-        agent -> agent.color
-      end
+    registries =
+      RegistryScope.registries_for_agent(socket.assigns.agent_registry_map, agent_id)
 
-    # Find sender by name (message.from may be an agent name or "mission-control")
-    from_id =
-      case Enum.find(socket.assigns.agents, &(&1.name == message.from || &1.id == message.from)) do
-        nil -> nil
-        agent -> agent.id
-      end
+    if registries == [] do
+      {:noreply, socket}
+    else
+      color =
+        case Enum.find(socket.assigns.agents, &(&1.id == agent_id)) do
+          nil -> "#A7C080"
+          agent -> agent.color
+        end
 
-    socket =
-      socket
-      |> update(:messages_today, &(&1 + 1))
-      |> update(:feed, fn feed ->
-        event = %{
-          type: message.type,
-          from: message.from,
-          to: agent_id,
-          color: color,
-          at: "just now"
-        }
+      from_id =
+        case Enum.find(socket.assigns.agents, &(&1.name == message.from || &1.id == message.from)) do
+          nil -> nil
+          agent -> agent.id
+        end
 
-        [event | Enum.take(feed, 49)]
-      end)
+      event = %{
+        id: Ecto.UUID.generate(),
+        inserted_at: DateTime.utc_now(),
+        type: message.type,
+        from: message.from,
+        to: agent_id,
+        color: color,
+        at: "just now"
+      }
 
-    socket =
-      if from_id do
-        push_event(socket, "graph_pulse", %{from: from_id, to: agent_id, color: color})
-      else
+      feed_by_registry =
+        RegistryScope.push_event_by_registry(
+          socket.assigns.feed_by_registry,
+          registries,
+          event
+        )
+
+      socket =
         socket
-      end
+        |> update(:messages_today, &(&1 + 1))
+        |> assign(:feed_by_registry, feed_by_registry)
+        |> recompute_feed()
 
-    {:noreply, socket}
+      socket =
+        if from_id do
+          push_event(socket, "graph_pulse", %{from: from_id, to: agent_id, color: color})
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:messages_today, n}, socket),
@@ -193,7 +217,60 @@ defmodule VicheWeb.NetworkLive do
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
+  def handle_event("select_registry", %{"registry" => registry}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/network?registry=#{registry}")}
+  end
+
   # -- Helpers --
+
+  defp recompute_feed(socket) do
+    feed =
+      RegistryScope.selected_feed(
+        socket.assigns.feed_by_registry,
+        socket.assigns.selected_registry
+      )
+
+    assign(socket, :feed, feed)
+  end
+
+  # Reloads agent graph data from the selected registry and updates assigns.
+  defp load_graph(socket) do
+    filter = RegistryScope.to_filter(socket.assigns.selected_registry)
+    agents = Viche.Agents.list_agents_with_status(filter) |> Enum.map(&add_color/1)
+    links = compute_links(agents)
+
+    metrics_agents =
+      if socket.assigns.public_mode do
+        agents
+      else
+        Viche.Agents.list_agents_with_status(:all)
+      end
+
+    online = Enum.count(metrics_agents, &(&1.status == :online))
+
+    socket
+    |> assign(:agents, agents)
+    |> assign(:links, links)
+    |> assign(:agent_count, length(metrics_agents))
+    |> assign(:online_count, online)
+  end
+
+  # Reloads graph data and pushes a graph_update event to the client JS hook.
+  defp load_graph_and_push(socket) do
+    socket = load_graph(socket)
+
+    push_event(socket, "graph_update", %{
+      agents:
+        Jason.encode!(
+          Enum.map(socket.assigns.agents, fn a ->
+            %{id: a.id, name: a.name, color: a.color, status: to_string(a.status)}
+          end)
+        ),
+      links: Jason.encode!(socket.assigns.links)
+    })
+  end
+
+  defp compute_links(agents) when length(agents) < 2, do: []
 
   defp compute_links(agents) do
     ids = Enum.map(agents, & &1.id)

@@ -1,18 +1,25 @@
 defmodule VicheWeb.AgentsLive do
   use VicheWeb, :live_view
 
+  alias VicheWeb.Live.RegistryScope
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(Viche.PubSub, "registry:global")
+      RegistryScope.subscribe("global")
       Phoenix.PubSub.subscribe(Viche.PubSub, "metrics:messages")
     end
+
+    public_mode = Application.get_env(:viche, :public_mode, false)
 
     socket =
       socket
       |> assign(:filter, :all)
       |> assign(:query, "")
       |> assign(:session_count, 3)
+      |> assign(:selected_registry, "global")
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, RegistryScope.visible_registries(public_mode))
       |> assign(:messages_today, Viche.MessageCounter.get())
       |> load_agents()
 
@@ -20,8 +27,25 @@ defmodule VicheWeb.AgentsLive do
   end
 
   @impl true
+  def handle_params(params, _uri, socket) do
+    registry = RegistryScope.effective_registry(params, socket)
+    old_registry = socket.assigns.selected_registry
+
+    if connected?(socket) do
+      RegistryScope.switch(old_registry, registry)
+    end
+
+    socket =
+      socket
+      |> assign(:selected_registry, registry)
+      |> load_agents()
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("filter", %{"status" => s}, socket) do
-    filter = String.to_atom(s)
+    filter = to_filter_atom(s)
 
     socket =
       socket
@@ -44,13 +68,22 @@ defmodule VicheWeb.AgentsLive do
     {:noreply, push_navigate(socket, to: "/agents/#{id}")}
   end
 
+  def handle_event("select_registry", %{"registry" => registry}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/agents?registry=#{registry}")}
+  end
+
   @impl true
   def handle_info(
-        %Phoenix.Socket.Broadcast{topic: "registry:global", event: event},
+        %Phoenix.Socket.Broadcast{topic: "registry:" <> _, event: event},
         socket
       )
       when event in ["agent_joined", "agent_left"] do
-    {:noreply, load_agents(socket)}
+    socket =
+      socket
+      |> assign(:registries, RegistryScope.visible_registries(socket.assigns.public_mode))
+      |> load_agents()
+
+    {:noreply, socket}
   end
 
   def handle_info({:messages_today, n}, socket),
@@ -59,16 +92,24 @@ defmodule VicheWeb.AgentsLive do
   # -- Helpers --
 
   defp load_agents(socket) do
-    all = Viche.Agents.list_agents_with_status()
-    filtered = apply_filters(all, socket.assigns.filter, socket.assigns.query)
-    online = Enum.count(all, &(&1.status == :online))
+    filter = RegistryScope.to_filter(socket.assigns.selected_registry)
+    display = Viche.Agents.list_agents_with_status(filter)
+    filtered = apply_filters(display, socket.assigns.filter, socket.assigns.query)
+
+    metrics_agents = RegistryScope.metrics_agents(socket.assigns.public_mode, display)
+    online = Enum.count(metrics_agents, &(&1.status == :online))
 
     socket
-    |> assign(:all_agents, all)
+    |> assign(:all_agents, display)
     |> assign(:agents, filtered)
-    |> assign(:agent_count, length(all))
+    |> assign(:agent_count, length(metrics_agents))
     |> assign(:online_count, online)
   end
+
+  defp to_filter_atom("all"), do: :all
+  defp to_filter_atom("online"), do: :online
+  defp to_filter_atom("offline"), do: :offline
+  defp to_filter_atom(_), do: :all
 
   defp apply_filters(agents, filter, query) do
     agents |> filter_by_status(filter) |> filter_by_query(query)

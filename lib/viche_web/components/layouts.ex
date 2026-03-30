@@ -73,6 +73,59 @@ defmodule VicheWeb.Layouts do
   end
 
   @doc """
+  Renders the registry selector dropdown used in the sidebar of every LiveView.
+
+  Hidden entirely when `public_mode` is true.
+
+  ## Examples
+
+      <Layouts.registry_selector
+        selected_registry={@selected_registry}
+        registries={@registries}
+        public_mode={@public_mode}
+      />
+
+  """
+  attr :selected_registry, :string, required: true
+  attr :registries, :list, default: []
+  attr :public_mode, :boolean, default: false
+
+  def registry_selector(assigns) do
+    ~H"""
+    <%= unless @public_mode do %>
+      <div
+        class="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+        style="color:var(--fg-dim)"
+      >
+        Registry
+      </div>
+      <form phx-change="select_registry" id="registry-selector-form">
+        <div class="px-2 mb-1">
+          <select
+            id="registry-selector"
+            name="registry"
+            class="w-full text-[11px] font-mono rounded px-2 py-1"
+            style="background:var(--bg-2);color:var(--fg);border:1px solid var(--border)"
+          >
+            <option value="global" selected={@selected_registry == "global"}>global</option>
+            <option
+              :for={reg <- @registries}
+              :if={reg not in ["global", "all"]}
+              value={reg}
+              selected={@selected_registry == reg}
+            >
+              {reg}
+            </option>
+            <option value="all" selected={@selected_registry == "all"}>All registries</option>
+          </select>
+        </div>
+      </form>
+      <div class="my-1 mx-2" style="border-top:1px solid var(--border)"></div>
+    <% end %>
+    """
+  end
+
+  @doc """
   Shows the flash group with standard titles and content.
 
   ## Examples
