@@ -10,14 +10,16 @@ defmodule VicheWeb.AgentsLive do
       Phoenix.PubSub.subscribe(Viche.PubSub, "metrics:messages")
     end
 
+    public_mode = Application.get_env(:viche, :public_mode, false)
+
     socket =
       socket
       |> assign(:filter, :all)
       |> assign(:query, "")
       |> assign(:session_count, 3)
       |> assign(:selected_registry, "global")
-      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, RegistryScope.visible_registries(public_mode))
       |> assign(:messages_today, Viche.MessageCounter.get())
       |> load_agents()
 
@@ -26,8 +28,7 @@ defmodule VicheWeb.AgentsLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    registry = Map.get(params, "registry", "global")
-    registry = RegistryScope.normalize(registry, socket.assigns.registries)
+    registry = RegistryScope.effective_registry(params, socket)
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -79,7 +80,7 @@ defmodule VicheWeb.AgentsLive do
       when event in ["agent_joined", "agent_left"] do
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:registries, RegistryScope.visible_registries(socket.assigns.public_mode))
       |> load_agents()
 
     {:noreply, socket}
@@ -93,14 +94,15 @@ defmodule VicheWeb.AgentsLive do
   defp load_agents(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)
     display = Viche.Agents.list_agents_with_status(filter)
-    all_agents = Viche.Agents.list_agents_with_status(:all)
     filtered = apply_filters(display, socket.assigns.filter, socket.assigns.query)
-    online = Enum.count(all_agents, &(&1.status == :online))
+
+    metrics_agents = RegistryScope.metrics_agents(socket.assigns.public_mode, display)
+    online = Enum.count(metrics_agents, &(&1.status == :online))
 
     socket
     |> assign(:all_agents, display)
     |> assign(:agents, filtered)
-    |> assign(:agent_count, length(all_agents))
+    |> assign(:agent_count, length(metrics_agents))
     |> assign(:online_count, online)
   end
 

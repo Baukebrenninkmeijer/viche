@@ -11,14 +11,16 @@ defmodule VicheWeb.SessionsLive do
       Process.send_after(self(), :tick, 5_000)
     end
 
+    public_mode = Application.get_env(:viche, :public_mode, false)
+
     socket =
       socket
       |> assign(:selected_agent_id, nil)
       |> assign(:selected_messages, [])
       |> assign(:messages_today, 0)
       |> assign(:selected_registry, "global")
-      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, if(public_mode, do: [], else: Viche.Agents.list_registries()))
       |> assign(:agent_registry_map, Viche.Agents.list_agent_registries())
       |> load_inboxes()
 
@@ -27,8 +29,15 @@ defmodule VicheWeb.SessionsLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    registry = Map.get(params, "registry", "global")
-    registry = RegistryScope.normalize(registry, socket.assigns.registries)
+    registry =
+      if socket.assigns.public_mode do
+        "global"
+      else
+        params
+        |> Map.get("registry", "global")
+        |> RegistryScope.normalize(socket.assigns.registries)
+      end
+
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -74,7 +83,10 @@ defmodule VicheWeb.SessionsLive do
 
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
       |> assign(:agent_registry_map, new_agent_registry_map)
       |> load_inboxes()
 
@@ -86,7 +98,10 @@ defmodule VicheWeb.SessionsLive do
 
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
       |> assign(:agent_registry_map, new_agent_registry_map)
       |> load_inboxes()
 
@@ -124,7 +139,13 @@ defmodule VicheWeb.SessionsLive do
   defp load_inboxes(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)
     agents_for_display = Viche.Agents.list_agents_with_status(filter)
-    all_agents = Viche.Agents.list_agents_with_status(:all)
+
+    all_agents =
+      if socket.assigns.public_mode do
+        agents_for_display
+      else
+        Viche.Agents.list_agents_with_status(:all)
+      end
 
     inbox_agents =
       agents_for_display

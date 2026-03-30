@@ -5,11 +5,13 @@ defmodule VicheWeb.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    public_mode = Application.get_env(:viche, :public_mode, false)
+
     socket =
       socket
       |> assign(:selected_registry, "global")
-      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, RegistryScope.visible_registries(public_mode))
       |> assign(:agent_registry_map, Viche.Agents.list_agent_registries())
       |> load_and_assign_agents()
 
@@ -33,8 +35,7 @@ defmodule VicheWeb.DashboardLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    registry = Map.get(params, "registry", "global")
-    registry = RegistryScope.normalize(registry, socket.assigns.registries)
+    registry = RegistryScope.effective_registry(params, socket)
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -90,7 +91,7 @@ defmodule VicheWeb.DashboardLive do
 
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:registries, RegistryScope.visible_registries(socket.assigns.public_mode))
       |> assign(:agent_registry_map, new_agent_registry_map)
       |> assign(:feed_by_registry, feed_by_registry)
       |> load_and_assign_agents()
@@ -131,7 +132,10 @@ defmodule VicheWeb.DashboardLive do
 
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
       |> assign(:agent_registry_map, new_agent_registry_map)
       |> assign(:feed_by_registry, feed_by_registry)
       |> load_and_assign_agents()
@@ -236,12 +240,19 @@ defmodule VicheWeb.DashboardLive do
   defp load_and_assign_agents(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)
     agents = Viche.Agents.list_agents_with_status(filter)
-    all_agents = Viche.Agents.list_agents_with_status(:all)
-    online = Enum.count(all_agents, &(&1.status == :online))
+
+    metrics_agents =
+      if socket.assigns.public_mode do
+        agents
+      else
+        Viche.Agents.list_agents_with_status(:all)
+      end
+
+    online = Enum.count(metrics_agents, &(&1.status == :online))
 
     socket
     |> assign(:agents, agents)
-    |> assign(:agent_count, length(all_agents))
+    |> assign(:agent_count, length(metrics_agents))
     |> assign(:online_count, online)
   end
 

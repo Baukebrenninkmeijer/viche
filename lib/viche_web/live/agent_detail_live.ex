@@ -5,6 +5,8 @@ defmodule VicheWeb.AgentDetailLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    public_mode = Application.get_env(:viche, :public_mode, false)
+
     socket =
       socket
       |> assign(:task_input, "")
@@ -12,8 +14,8 @@ defmodule VicheWeb.AgentDetailLive do
       |> assign(:dispatch_history, [])
       |> assign(:agent, nil)
       |> assign(:selected_registry, "global")
-      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, if(public_mode, do: [], else: Viche.Agents.list_registries()))
       |> load_sidebar_counts()
 
     {:ok, socket}
@@ -32,9 +34,13 @@ defmodule VicheWeb.AgentDetailLive do
     end
 
     registry =
-      params
-      |> Map.get("registry", "global")
-      |> RegistryScope.normalize(socket.assigns.registries)
+      if socket.assigns.public_mode do
+        "global"
+      else
+        params
+        |> Map.get("registry", "global")
+        |> RegistryScope.normalize(socket.assigns.registries)
+      end
 
     socket =
       socket
@@ -107,7 +113,13 @@ defmodule VicheWeb.AgentDetailLive do
   # -- Helpers --
 
   defp load_sidebar_counts(socket) do
-    all = Viche.Agents.list_agents_with_status(:all)
+    all =
+      if socket.assigns.public_mode do
+        Viche.Agents.list_agents_with_status("global")
+      else
+        Viche.Agents.list_agents_with_status(:all)
+      end
+
     online = Enum.count(all, &(&1.status == :online))
 
     socket

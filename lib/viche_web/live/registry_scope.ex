@@ -78,6 +78,41 @@ defmodule VicheWeb.Live.RegistryScope do
     :ok
   end
 
+  @doc """
+  Returns `"global"` when public mode is active; otherwise normalizes the
+  `"registry"` URL param from `params`.
+
+  Use this at the top of every `handle_params/3` to prevent URL-param abuse in
+  public-mode deployments.
+  """
+  @spec effective_registry(map(), Phoenix.LiveView.Socket.t()) :: String.t()
+  def effective_registry(_params, %{assigns: %{public_mode: true}}), do: "global"
+
+  def effective_registry(params, socket) do
+    params
+    |> Map.get("registry", "global")
+    |> normalize(socket.assigns.registries)
+  end
+
+  @doc """
+  Returns `[]` in public mode (selector is hidden), otherwise lists all
+  known registries.  Use in `mount/3` to populate the `:registries` assign.
+  """
+  @spec visible_registries(boolean()) :: [String.t()]
+  def visible_registries(true), do: []
+  def visible_registries(false), do: Viche.Agents.list_registries()
+
+  @doc """
+  Returns the correct agent list for computing sidebar metrics.
+
+  In public mode, `scoped_agents` (already filtered to the selected registry)
+  is reused directly so private-registry agents cannot appear in counts.
+  In normal mode, all agents across every registry are fetched.
+  """
+  @spec metrics_agents(boolean(), [map()]) :: [map()]
+  def metrics_agents(true, scoped_agents), do: scoped_agents
+  def metrics_agents(false, _scoped_agents), do: Viche.Agents.list_agents_with_status(:all)
+
   @doc "Look up registries for an agent from the preloaded map."
   @spec registries_for_agent(%{String.t() => [String.t()]}, String.t()) :: [String.t()]
   def registries_for_agent(agent_registry_map, agent_id) do

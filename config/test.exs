@@ -43,6 +43,10 @@ config :phoenix,
 # Use very short grace period in tests to avoid slow tests
 config :viche, grace_period_ms: 150
 
+# Disable public_mode in tests so registry switching works by default.
+# Tests that need public_mode: true use Application.put_env explicitly.
+config :viche, :public_mode, false
+
 # Import local secret config for worktree-specific overrides (ports, database)
 if File.exists?(Path.expand("test.secret.exs", __DIR__)) do
   import_config "test.secret.exs"

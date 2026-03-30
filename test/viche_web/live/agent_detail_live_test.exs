@@ -128,6 +128,61 @@ defmodule VicheWeb.AgentDetailLiveTest do
     end
   end
 
+  describe "public_mode: true — global-only scoping" do
+    setup do
+      Application.put_env(:viche, :public_mode, true)
+      on_exit(fn -> Application.delete_env(:viche, :public_mode) end)
+
+      # Clear all agents for deterministic counts
+      Viche.AgentSupervisor
+      |> DynamicSupervisor.which_children()
+      |> Enum.each(fn {_, pid, _, _} ->
+        DynamicSupervisor.terminate_child(Viche.AgentSupervisor, pid)
+      end)
+
+      :ok
+    end
+
+    test "?registry=team-secret URL param is ignored — selected_registry stays global", %{
+      conn: conn
+    } do
+      agent =
+        register_agent!(%{
+          name: "detail-pm-url-agent",
+          capabilities: ["coding"],
+          registries: ["global"]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/agents/#{agent.id}?registry=team-secret")
+
+      # Selector is hidden in public_mode
+      refute has_element?(view, "#registry-selector")
+      # No team-secret option visible
+      refute has_element?(view, "#registry-selector option[value='team-secret']")
+    end
+
+    test "agent_count reflects only global agents, not private ones", %{conn: conn} do
+      global_agent =
+        register_agent!(%{
+          name: "detail-pm-cnt-global",
+          capabilities: ["coding"],
+          registries: ["global"]
+        })
+
+      register_agent!(%{
+        name: "detail-pm-cnt-private",
+        capabilities: ["testing"],
+        registries: ["team-secret"]
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/agents/#{global_agent.id}")
+
+      # Exactly 1 global agent — the footer metric must not include the private one
+      assert html =~ "1 agents"
+      refute html =~ "2 agents"
+    end
+  end
+
   describe "handle_event select_registry" do
     test "switching registry patches the URL to include ?registry= param", %{conn: conn} do
       _alpha =

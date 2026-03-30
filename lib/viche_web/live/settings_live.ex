@@ -8,7 +8,15 @@ defmodule VicheWeb.SettingsLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket), do: Phoenix.PubSub.subscribe(Viche.PubSub, "metrics:messages")
-    agents = Viche.Agents.list_agents_with_status(:all)
+    public_mode = Application.get_env(:viche, :public_mode, false)
+
+    agents =
+      if public_mode do
+        Viche.Agents.list_agents_with_status("global")
+      else
+        Viche.Agents.list_agents_with_status(:all)
+      end
+
     online = Enum.count(agents, &(&1.status == :online))
 
     socket =
@@ -25,8 +33,8 @@ defmodule VicheWeb.SettingsLive do
       |> assign(:session_count, 3)
       |> assign(:messages_today, Viche.MessageCounter.get())
       |> assign(:selected_registry, "global")
-      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, if(public_mode, do: [], else: Viche.Agents.list_registries()))
 
     {:ok, socket}
   end
@@ -34,9 +42,13 @@ defmodule VicheWeb.SettingsLive do
   @impl true
   def handle_params(params, _uri, socket) do
     registry =
-      params
-      |> Map.get("registry", "global")
-      |> RegistryScope.normalize(socket.assigns.registries)
+      if socket.assigns.public_mode do
+        "global"
+      else
+        params
+        |> Map.get("registry", "global")
+        |> RegistryScope.normalize(socket.assigns.registries)
+      end
 
     {:noreply, assign(socket, :selected_registry, registry)}
   end

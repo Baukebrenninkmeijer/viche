@@ -109,6 +109,92 @@ defmodule VicheWeb.SessionsLiveTest do
     end
   end
 
+  describe "public_mode: true — global-only scoping" do
+    setup do
+      Application.put_env(:viche, :public_mode, true)
+      on_exit(fn -> Application.delete_env(:viche, :public_mode) end)
+
+      # Clear all agents for deterministic counts
+      Viche.AgentSupervisor
+      |> DynamicSupervisor.which_children()
+      |> Enum.each(fn {_, pid, _, _} ->
+        DynamicSupervisor.terminate_child(Viche.AgentSupervisor, pid)
+      end)
+
+      :ok
+    end
+
+    test "only global agent inboxes visible; private registry agent inboxes hidden", %{
+      conn: conn
+    } do
+      global_agent =
+        register_agent!(%{
+          name: "ses-pm-global",
+          capabilities: ["coding"],
+          registries: ["global"]
+        })
+
+      private_agent =
+        register_agent!(%{
+          name: "ses-pm-private",
+          capabilities: ["testing"],
+          registries: ["team-secret"]
+        })
+
+      send_message_to!(global_agent)
+      send_message_to!(private_agent)
+
+      {:ok, _view, html} = live(conn, ~p"/sessions")
+
+      assert html =~ "ses-pm-global"
+      refute html =~ "ses-pm-private"
+    end
+
+    test "?registry=team-secret URL param is ignored — still shows global only", %{conn: conn} do
+      global_agent =
+        register_agent!(%{
+          name: "ses-pm-url-global",
+          capabilities: ["coding"],
+          registries: ["global"]
+        })
+
+      private_agent =
+        register_agent!(%{
+          name: "ses-pm-url-private",
+          capabilities: ["testing"],
+          registries: ["team-secret"]
+        })
+
+      send_message_to!(global_agent)
+      send_message_to!(private_agent)
+
+      {:ok, _view, html} = live(conn, ~p"/sessions?registry=team-secret")
+
+      assert html =~ "ses-pm-url-global"
+      refute html =~ "ses-pm-url-private"
+    end
+
+    test "agent_count reflects only global agents, not private ones", %{conn: conn} do
+      register_agent!(%{
+        name: "ses-pm-cnt-global",
+        capabilities: ["coding"],
+        registries: ["global"]
+      })
+
+      register_agent!(%{
+        name: "ses-pm-cnt-private",
+        capabilities: ["testing"],
+        registries: ["team-secret"]
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/sessions")
+
+      # Exactly 1 global agent — the footer metric must not include the private one
+      assert html =~ "1 agents"
+      refute html =~ "2 agents"
+    end
+  end
+
   describe "handle_event select_registry" do
     test "switching registry updates inbox display", %{conn: conn} do
       global_agent =

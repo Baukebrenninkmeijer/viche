@@ -12,11 +12,13 @@ defmodule VicheWeb.NetworkLive do
       Process.send_after(self(), :tick, 3_000)
     end
 
+    public_mode = Application.get_env(:viche, :public_mode, false)
+
     socket =
       socket
       |> assign(:selected_registry, "global")
-      |> assign(:public_mode, Application.get_env(:viche, :public_mode, false))
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(:public_mode, public_mode)
+      |> assign(:registries, if(public_mode, do: [], else: Viche.Agents.list_registries()))
       |> assign(:agent_registry_map, Viche.Agents.list_agent_registries())
       |> assign(:feed_by_registry, %{})
       |> assign(:feed, [])
@@ -30,8 +32,15 @@ defmodule VicheWeb.NetworkLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    registry = Map.get(params, "registry", "global")
-    registry = RegistryScope.normalize(registry, socket.assigns.registries)
+    registry =
+      if socket.assigns.public_mode do
+        "global"
+      else
+        params
+        |> Map.get("registry", "global")
+        |> RegistryScope.normalize(socket.assigns.registries)
+      end
+
     old_registry = socket.assigns.selected_registry
 
     if connected?(socket) do
@@ -80,7 +89,10 @@ defmodule VicheWeb.NetworkLive do
 
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
       |> assign(:agent_registry_map, new_agent_registry_map)
       |> assign(:feed_by_registry, feed_by_registry)
       |> load_graph_and_push()
@@ -121,7 +133,10 @@ defmodule VicheWeb.NetworkLive do
 
     socket =
       socket
-      |> assign(:registries, Viche.Agents.list_registries())
+      |> assign(
+        :registries,
+        if(socket.assigns.public_mode, do: [], else: Viche.Agents.list_registries())
+      )
       |> assign(:agent_registry_map, new_agent_registry_map)
       |> assign(:feed_by_registry, feed_by_registry)
       |> load_graph_and_push()
@@ -222,14 +237,21 @@ defmodule VicheWeb.NetworkLive do
   defp load_graph(socket) do
     filter = RegistryScope.to_filter(socket.assigns.selected_registry)
     agents = Viche.Agents.list_agents_with_status(filter) |> Enum.map(&add_color/1)
-    all_agents = Viche.Agents.list_agents_with_status(:all)
     links = compute_links(agents)
-    online = Enum.count(all_agents, &(&1.status == :online))
+
+    metrics_agents =
+      if socket.assigns.public_mode do
+        agents
+      else
+        Viche.Agents.list_agents_with_status(:all)
+      end
+
+    online = Enum.count(metrics_agents, &(&1.status == :online))
 
     socket
     |> assign(:agents, agents)
     |> assign(:links, links)
-    |> assign(:agent_count, length(all_agents))
+    |> assign(:agent_count, length(metrics_agents))
     |> assign(:online_count, online)
   end
 

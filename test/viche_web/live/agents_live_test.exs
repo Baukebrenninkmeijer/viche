@@ -159,6 +159,71 @@ defmodule VicheWeb.AgentsLiveTest do
     end
   end
 
+  describe "public_mode: true — global-only scoping" do
+    setup do
+      Application.put_env(:viche, :public_mode, true)
+      on_exit(fn -> Application.delete_env(:viche, :public_mode) end)
+
+      # Clear all agents for deterministic counts
+      Viche.AgentSupervisor
+      |> DynamicSupervisor.which_children()
+      |> Enum.each(fn {_, pid, _, _} ->
+        DynamicSupervisor.terminate_child(Viche.AgentSupervisor, pid)
+      end)
+
+      :ok
+    end
+
+    test "only global agents visible; private registry agents are hidden", %{conn: conn} do
+      register_agent!(%{name: "pm-global", capabilities: ["coding"], registries: ["global"]})
+
+      register_agent!(%{
+        name: "pm-private",
+        capabilities: ["testing"],
+        registries: ["team-secret"]
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/agents")
+
+      assert html =~ "pm-global"
+      refute html =~ "pm-private"
+    end
+
+    test "?registry=team-secret URL param is ignored — still shows global only", %{conn: conn} do
+      register_agent!(%{name: "pm-url-global", capabilities: ["coding"], registries: ["global"]})
+
+      register_agent!(%{
+        name: "pm-url-private",
+        capabilities: ["testing"],
+        registries: ["team-secret"]
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/agents?registry=team-secret")
+
+      assert html =~ "pm-url-global"
+      refute html =~ "pm-url-private"
+    end
+
+    test "agent_count reflects only global agents, not private ones", %{conn: conn} do
+      register_agent!(%{
+        name: "pm-cnt-global",
+        capabilities: ["coding"],
+        registries: ["global"]
+      })
+
+      register_agent!(%{
+        name: "pm-cnt-private",
+        capabilities: ["testing"],
+        registries: ["team-secret"]
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/agents")
+
+      # Exactly 1 global agent registered — footer must show "Showing 1 of 1 agents"
+      assert html =~ "Showing 1 of 1 agents"
+    end
+  end
+
   describe "handle_event select_registry" do
     test "switching to team-alpha shows only team-alpha agents", %{conn: conn} do
       _global =
@@ -227,6 +292,15 @@ defmodule VicheWeb.AgentsLiveTest do
          } do
       _global =
         register_agent!(%{name: "pubsub-g", capabilities: ["coding"], registries: ["global"]})
+
+      # Pre-register an agent in team-alpha so the registry is known when the view mounts;
+      # without this, normalize/2 would reject the ?registry=team-alpha param and fall back to global.
+      _seed_alpha =
+        register_agent!(%{
+          name: "pubsub-alpha-seed",
+          capabilities: ["coding"],
+          registries: ["team-alpha"]
+        })
 
       {:ok, view, _html} = live(conn, ~p"/agents")
 
