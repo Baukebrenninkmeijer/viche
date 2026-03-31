@@ -510,7 +510,8 @@ html { scroll-behavior: smooth; }
 @media (max-width: 640px) {
   /* Nav: hide links and GitHub badge; shrink CTA button */
   .landing-nav .nav-links { display: none; }
-  .nav-github { display: none; }
+  .nav-github-text { display: none; }
+  .nav-github { padding: 5px 8px; }
   .btn-nav-cta {
     font-size: 12px;
     padding: 0 10px;
