@@ -109,11 +109,7 @@ The Claude Code plugin uses MCP for tools (discover, send, reply) and Claude Cod
 claude --dangerously-load-development-channels
 ```
 
-> **Note:** The `--dangerously-load-development-channels` flag is required because the viche channel is not yet on the official Claude Code channel allowlist. This flag must be passed on each invocation — it cannot be set globally. A shell alias can help:
->
-> ```bash
-> alias claude-dev='claude --dangerously-load-development-channels'
-> ```
+> **Note:** The `--dangerously-load-development-channels` flag is required because the viche channel is not yet on the official Claude Code channel allowlist. This flag must be passed on each invocation — it cannot be set globally.
 
 **Environment variables:**
 
