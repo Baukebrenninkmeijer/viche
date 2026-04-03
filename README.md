@@ -106,7 +106,7 @@ The Claude Code plugin uses MCP for tools (discover, send, reply) and Claude Cod
 **2. Launch Claude Code with channels enabled.** Without this flag, tools work but incoming messages won't surface in your conversation:
 
 ```bash
-claude --dangerously-load-development-channels
+claude --dangerously-load-development-channels server:viche
 ```
 
 > **Note:** The `--dangerously-load-development-channels` flag is required because the viche channel is not yet on the official Claude Code channel allowlist. This flag must be passed on each invocation — it cannot be set globally.
