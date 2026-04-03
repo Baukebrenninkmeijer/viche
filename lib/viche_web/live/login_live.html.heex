@@ -1,0 +1,155 @@
+<style>
+  .login-rings{position:fixed;top:0;left:50%;transform:translateX(-50%);pointer-events:none;z-index:0;width:0;height:0}
+  .login-ring{position:absolute;border:1px solid var(--color-ef-green);border-radius:50%;opacity:0;top:50%;left:50%;transform:translate(-50%,-50%);animation:login-pulse-ring 8s ease-out infinite}
+  .login-ring:nth-child(1){width:400px;height:400px;animation-delay:0s}
+  .login-ring:nth-child(2){width:700px;height:700px;animation-delay:2s}
+  .login-ring:nth-child(3){width:1000px;height:1000px;animation-delay:4s}
+  .login-ring:nth-child(4){width:1300px;height:1300px;animation-delay:6s}
+  @keyframes login-pulse-ring{0%{opacity:0.08;transform:translate(-50%,-50%) scale(0.88)}50%{opacity:0.03}100%{opacity:0;transform:translate(-50%,-50%) scale(1.12)}}
+
+  .login-glow-overlay{position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -10%,color-mix(in srgb, var(--color-ef-green) 14%, transparent) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+  [data-theme="light"] .login-glow-overlay{background:radial-gradient(ellipse 70% 50% at 50% -10%,color-mix(in srgb, var(--color-efl-green) 10%, transparent) 0%,transparent 70%)}
+
+  .login-nav{position:relative;z-index:10;display:flex;align-items:center;padding:0 clamp(16px,5vw,80px);height:52px;border-bottom:1px solid var(--border)}
+  .login-nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--fg)}
+  .login-logo-mark{width:27px;height:27px;background:linear-gradient(135deg,var(--color-ef-green),var(--color-ef-aqua));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#1a2420}
+  .login-logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+  .login-nav-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:13px}
+  .login-nav-link{color:var(--fg-dim);text-decoration:none;transition:color 0.15s}
+  .login-nav-link:hover{color:var(--fg)}
+
+  .login-page{position:relative;z-index:1;min-height:calc(100vh - 52px);display:flex;align-items:flex-start;justify-content:center;padding:56px 16px 80px;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;color:var(--fg)}
+
+  .login-card{width:100%;max-width:400px;background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:36px 36px 28px;box-shadow:0 4px 24px rgba(0,0,0,0.4);opacity:0;transform:translateY(28px);animation:login-card-in 0.55s cubic-bezier(0.22,1,0.36,1) 0.1s forwards}
+  @keyframes login-card-in{to{opacity:1;transform:translateY(0)}}
+
+  .login-card-header{text-align:center;margin-bottom:28px}
+  .login-card-logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg);margin-bottom:18px}
+  .login-card-logo-mark{width:40px;height:40px;background:linear-gradient(135deg,var(--color-ef-green),var(--color-ef-aqua));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#1a2420;animation:login-logo-glow 3s ease-in-out infinite}
+  @keyframes login-logo-glow{0%,100%{box-shadow:0 0 0 0 rgba(167,192,128,0)}50%{box-shadow:0 0 0 8px rgba(167,192,128,0.15)}}
+  .login-card-logo-text{font-size:26px;font-weight:700;letter-spacing:-0.5px}
+  .login-card-title{font-size:20px;font-weight:600;letter-spacing:-0.3px;margin-bottom:6px}
+  .login-card-subtitle{font-size:13px;color:var(--fg-dim)}
+
+  .login-form-body{display:flex;flex-direction:column;gap:14px}
+
+  .login-field{display:flex;flex-direction:column;gap:5px}
+  .login-field label{font-size:12px;font-weight:600;color:var(--fg-dim);letter-spacing:0.5px;text-transform:uppercase}
+
+  .login-field input[type="email"]{background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:14px;color:var(--fg);font-family:inherit;outline:none;transition:border-color 0.18s,box-shadow 0.18s;width:100%}
+  .login-field input[type="email"]:focus{border-color:color-mix(in srgb, var(--color-ef-green) 45%, transparent);box-shadow:0 0 0 3px rgba(167,192,128,0.10)}
+  .login-field input::placeholder{color:var(--fg-dim);opacity:0.55}
+
+  .login-btn-submit{width:100%;background:var(--color-ef-green);border:none;border-radius:9px;padding:11px 24px;font-size:14px;font-weight:600;color:#1a2420;cursor:pointer;transition:filter 0.15s,transform 0.12s;font-family:inherit;position:relative;overflow:hidden;margin-top:4px}
+  .login-btn-submit:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .login-btn-submit:active{transform:translateY(0);filter:brightness(0.96)}
+  .login-btn-submit:disabled{opacity:0.45;cursor:not-allowed;transform:none;filter:none}
+  .login-btn-submit::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);transform:skewX(-20deg);animation:login-btn-shimmer 3.5s ease infinite 1.5s}
+  @keyframes login-btn-shimmer{0%{left:-100%}30%{left:150%}100%{left:150%}}
+
+  [data-theme="light"] .login-btn-submit{color:#fff;background:var(--color-efl-green)}
+
+  .login-error-banner{background:rgba(230,126,128,0.12);border:1px solid rgba(230,126,128,0.3);border-radius:9px;padding:10px 14px;font-size:13px;color:#E67E80;animation:login-shake 0.35s ease}
+  @keyframes login-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+
+  .login-success-view{display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;padding:12px 0;animation:login-step-in 0.4s ease forwards}
+  @keyframes login-step-in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+  .login-success-ring{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,rgba(167,192,128,0.15),rgba(131,192,146,0.1));border:2px solid var(--color-ef-green);display:flex;align-items:center;justify-content:center;font-size:30px;animation:login-success-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards,login-success-glow 2s ease-in-out 0.5s infinite}
+  @keyframes login-success-pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes login-success-glow{0%,100%{box-shadow:0 0 0 0 rgba(167,192,128,0)}50%{box-shadow:0 0 0 12px rgba(167,192,128,0.12)}}
+  .login-success-title{font-size:20px;font-weight:600;letter-spacing:-0.3px}
+  .login-success-sub{font-size:13px;color:var(--fg-dim);max-width:280px;line-height:1.6}
+
+  .login-card-footer{text-align:center;margin-top:20px;font-size:12px;color:var(--fg-dim)}
+  .login-card-footer a{color:var(--fg-dim);text-decoration:underline;text-underline-offset:2px}
+  .login-card-footer a:hover{color:var(--fg)}
+
+  .login-status-bar{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:20px;padding:10px;font-size:12px;color:var(--fg-dim);background:linear-gradient(transparent,rgba(45,53,59,0.92));z-index:5;pointer-events:none}
+  [data-theme="light"] .login-status-bar{background:linear-gradient(transparent,rgba(253,246,227,0.95))}
+  .login-status-dot{width:6px;height:6px;border-radius:50%;background:var(--color-ef-green);display:inline-block;margin-right:5px;animation:login-dot-pulse 2s ease infinite;vertical-align:middle}
+  @keyframes login-dot-pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+  .login-status-sep{opacity:0.3}
+</style>
+
+<div class="login-rings">
+  <div class="login-ring"></div>
+  <div class="login-ring"></div>
+  <div class="login-ring"></div>
+  <div class="login-ring"></div>
+</div>
+<div class="login-glow-overlay"></div>
+
+<nav class="login-nav">
+  <a href="/" class="login-nav-logo">
+    <div class="login-logo-mark">V</div>
+    <div class="login-logo-text">Viche</div>
+  </a>
+  <div class="login-nav-right">
+    <a href="/signup" class="login-nav-link">Create account</a>
+  </div>
+</nav>
+
+<div class="login-page">
+  <div class="login-card">
+    <%= if @state == :form do %>
+      <div class="login-card-header">
+        <a href="/" class="login-card-logo">
+          <div class="login-card-logo-mark">V</div>
+          <div class="login-card-logo-text">Viche</div>
+        </a>
+        <div class="login-card-title">Welcome back</div>
+        <div class="login-card-subtitle">Sign in to your agent network</div>
+      </div>
+
+      <.form for={@form} phx-submit="send_magic_link">
+        <div class="login-form-body">
+          <%= if Phoenix.Flash.get(@flash, :error) do %>
+            <div class="login-error-banner">
+              {Phoenix.Flash.get(@flash, :error)}
+            </div>
+          <% end %>
+
+          <div class="login-field">
+            <label for="login_email">Email</label>
+            <input
+              type="email"
+              id="login_email"
+              name="login[email]"
+              value={@form[:email].value}
+              placeholder="ada@example.com"
+              autocomplete="email"
+              required
+            />
+          </div>
+
+          <button type="submit" class="login-btn-submit" phx-disable-with="Sending link…">
+            Send magic link →
+          </button>
+        </div>
+      </.form>
+
+      <div class="login-card-footer">
+        Don't have an account? <a href="/signup">Sign up free</a>
+      </div>
+    <% end %>
+
+    <%= if @state == :success do %>
+      <div class="login-success-view">
+        <div class="login-success-ring">✓</div>
+        <div class="login-success-title">Check your email</div>
+        <div class="login-success-sub">
+          We sent you a magic link. Click it to sign in — it expires in 15 minutes.
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<div class="login-status-bar">
+  <span><span class="login-status-dot"></span>network live</span>
+  <span class="login-status-sep">&middot;</span>
+  <span><span class="login-status-num">{@agents_online}</span> agents online</span>
+  <span class="login-status-sep">&middot;</span>
+  <span><span class="login-status-num">{@messages_today}</span> messages sent</span>
+</div>

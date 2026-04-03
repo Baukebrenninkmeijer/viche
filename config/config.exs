@@ -34,6 +34,9 @@ config :viche, VicheWeb.Endpoint,
 # at the `config/runtime.exs`.
 config :viche, Viche.Mailer, adapter: Swoosh.Adapters.Local
 
+# Base URL used to build magic-link verification URLs
+config :viche, :app_url, "http://localhost:4000"
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",

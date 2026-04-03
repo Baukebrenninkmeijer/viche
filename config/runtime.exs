@@ -22,6 +22,26 @@ end
 
 config :viche, VicheWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# ---------------------------------------------------------------------------
+# Email provider (all envs except test, which uses Swoosh.Adapters.Test)
+# ---------------------------------------------------------------------------
+if config_env() != :test do
+  case System.get_env("EMAIL_PROVIDER") do
+    "resend" ->
+      config :viche, Viche.Mailer,
+        adapter: Swoosh.Adapters.Resend,
+        api_key: System.get_env("RESEND_API_KEY")
+
+      config :swoosh, :api_client, Swoosh.ApiClient.Req
+
+    "console" ->
+      config :viche, Viche.Mailer, adapter: Swoosh.Adapters.Logger
+
+    _ ->
+      config :viche, Viche.Mailer, adapter: Swoosh.Adapters.Local
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -54,6 +74,7 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
+  config :viche, :app_url, "https://#{host}"
   config :viche, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :viche, simple_analytics_enabled: true

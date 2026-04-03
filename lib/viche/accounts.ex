@@ -65,6 +65,14 @@ defmodule Viche.Accounts do
     Repo.one(query)
   end
 
+  @doc """
+  Fetches the user associated with an auth token record.
+  """
+  @spec get_user_by_token_record(AuthToken.t()) :: User.t() | nil
+  def get_user_by_token_record(%AuthToken{user_id: user_id}) do
+    Repo.get(User, user_id)
+  end
+
   defp hash_token(raw_token) do
     :sha256
     |> :crypto.hash(raw_token)

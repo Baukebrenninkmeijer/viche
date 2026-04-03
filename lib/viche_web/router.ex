@@ -20,10 +20,21 @@ defmodule VicheWeb.Router do
     get "/health", HealthController, :check
   end
 
+  scope "/auth", VicheWeb do
+    pipe_through :browser
+
+    post "/login", AuthController, :login
+    get "/confirm", AuthController, :confirm
+    delete "/logout", AuthController, :logout
+  end
+
   scope "/", VicheWeb do
     pipe_through :browser
 
     live "/", LandingLive
+    live "/login", LoginLive
+    live "/signup", SignupLive
+    live "/verify", VerifyLive
     live "/dashboard", DashboardLive
     live "/agents", AgentsLive
     live "/agents/:id", AgentDetailLive
