@@ -55,7 +55,12 @@ defmodule VicheWeb.AgentChannel do
       {:ok, %{agent_id: agent.id},
        socket |> assign(:agent_id, agent.id) |> Map.put(:id, "agent_socket:#{agent.id}")}
     else
-      {:error, reason} -> {:error, %{reason: to_string(reason)}}
+      {:error, reason} ->
+        Logger.warning(
+          "agent:register refused — reason: #{inspect(reason)}, params: #{inspect(params)}"
+        )
+
+        {:error, %{reason: to_string(reason)}}
     end
   end
 
