@@ -77,7 +77,11 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :viche, :app_url, "https://#{host}"
-  config :viche, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+
+  # Treat empty string as nil to prevent DNSCluster crash on empty env var
+  dns_query = System.get_env("DNS_CLUSTER_QUERY")
+  dns_query = if dns_query in [nil, ""], do: nil, else: dns_query
+  config :viche, :dns_cluster_query, dns_query
 
   # Simple Analytics: enabled by default in prod. Set VICHE_ANALYTICS=false to disable.
   config :viche,
